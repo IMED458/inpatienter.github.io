@@ -365,7 +365,7 @@
                 <option value="4">4</option><option value="5">5</option><option value="6">6</option>
                 <option value="7">7</option><option value="8">8</option>
                 <option value="ლოჯი">ლოჯი</option>
-                <option value="მცირე (3 საწოლი)">მცირე (3 საწოლი)</option>
+                <option value="მცირე ">მცირე</option>
               </select>
             </div>
             <div class="form-group"><label for="patient-name">პაციენტის სახელი და გვარი *</label>
@@ -400,7 +400,7 @@
             <option value="4">4</option><option value="5">5</option><option value="6">6</option>
             <option value="7">7</option><option value="8">8</option>
             <option value="ლოჯი">ლოჯი</option>
-            <option value="მცირე (3 საწოლი)">მცირე (3 საწოლი)</option>
+            <option value="მცირე">მცირე</option>
           </select>
           <select id="filter-doctor"><option value="">ყველა ექიმი</option></select>
           <select id="filter-icd"><option value="">ყველა ICD-10</option></select>
@@ -443,7 +443,7 @@
             <option value="4">4</option><option value="5">5</option><option value="6">6</option>
             <option value="7">7</option><option value="8">8</option>
             <option value="ლოჯი">ლოჯი</option>
-            <option value="მცირე (3 საწოლი)">მცირე (3 საწოლი)</option>
+            <option value="მცირე ">მცირე</option>
           </select>
         </div>
 
