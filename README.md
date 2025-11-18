@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>კლინიკა • საწოლების მართვა</title>
+  <title>კლინიკა • საწოლების მართვა (ტესტი)</title>
 
-  <!-- Firebase SDK v10+ (modular) -->
+  <!-- Firebase SDK v10+ -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
     import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -24,7 +24,7 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // ანონიმური ავტორიზაცია (უსაფრთხოებისთვის აუცილებელი)
+    // ანონიმური შესვლა
     signInAnonymously(auth).catch(() => console.log("ანონიმური ავტორიზაცია"));
 
     window.db = db;
@@ -34,7 +34,7 @@
     window.currentSort = { column: 'timestamp', dir: 'desc' };
     window.editingDocId = null;
 
-    // Toast შეტყობინება
+    // Toast
     window.showToast = function(msg, error = false) {
       const toast = document.getElementById('toast');
       toast.textContent = msg;
@@ -42,7 +42,6 @@
       setTimeout(() => toast.classList.remove('active'), 4000);
     };
 
-    // უსაფრთხო HTML escaping
     function escapeHtml(text) {
       if (text === null || text === undefined) return '-';
       const div = document.createElement('div');
@@ -61,10 +60,7 @@
     // დარბაზის გახსნა
     window.openRoom = function(room) {
       onAuthStateChanged(auth, user => {
-        if (!user) {
-          showToast('ავტორიზაცია ვერ მოხერხდა', true);
-          return;
-        }
+        if (!user) return showToast('ავტორიზაცია ვერ მოხერხდა', true);
 
         const collName = room === 'observation' ? 'observation_room' : 'shock_room';
         window.currentCollection = collection(db, collName);
@@ -78,7 +74,7 @@
       });
     };
 
-    // ტაბების გადართვა
+    // ტაბები
     window.switchTab = function(btn, tab) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
@@ -86,7 +82,7 @@
       document.getElementById(tab + '-tab').style.display = 'block';
     };
 
-    // ცხრილების რენდერი
+    // ცხრილის რენდერი
     window.renderTables = function() {
       const search = (document.getElementById('search')?.value || '').toLowerCase();
       const active = window.patients.filter(p => !p.archived);
@@ -114,7 +110,7 @@
         return result * (window.currentSort.dir === 'asc' ? 1 : -1);
       });
 
-      // აქტიური პაციენტები
+      // აქტიურები
       document.getElementById('active-tbody').innerHTML = list.length === 0
         ? '<tr><td colspan="8" class="empty-state">პაციენტები არ არის</td></tr>'
         : list.map(p => `
@@ -160,12 +156,8 @@
       const today = new Date().toDateString();
       const activeCount = window.patients.filter(p => !p.archived).length;
       const archivedCount = window.patients.filter(p => p.archived).length;
-      const addedToday = window.patients.filter(p => 
-        !p.archived && p.timestamp?.toDate?.().toDateString() === today
-      ).length;
-      const archivedToday = window.patients.filter(p => 
-        p.archived && p.archived_at?.toDate?.().toDateString() === today
-      ).length;
+      const addedToday = window.patients.filter(p => !p.archived && p.timestamp?.toDate?.().toDateString() === today).length;
+      const archivedToday = window.patients.filter(p => p.archived && p.archived_at?.toDate?.().toDateString() === today).length;
 
       document.getElementById('stat-active').textContent = activeCount;
       document.getElementById('stat-today-added').textContent = addedToday;
@@ -202,7 +194,7 @@
           timestamp: serverTimestamp()
         });
         this.reset();
-        showToast('პაციენტი წარმატებით დაემატა!');
+        showToast('პაციენტი დაემატა!');
       } catch (err) {
         showToast('შეცდომა: ' + err.message, true);
       }
@@ -240,31 +232,45 @@
       }
     };
 
-    // მოქმედებები
-    window.archivePatient = id => confirm('გადატანა არქივში?') && updateDoc(doc(db, window.currentCollection.path, id), { archived: true, archived_at: serverTimestamp() }).then(() => showToast('არქივში გადავიდა'));
-    window.restorePatient = id => confirm('აღდგენა აქტიურებში?') && updateDoc(doc(db, window.currentCollection.path, id), { archived: false, archived_at: null }).then(() => showToast('აღდგენილია'));
-    
-    window.deletePatient = id => {
-      if (confirm('სამუდამოდ წაშლა?') && confirm('დარწმუნებული ხართ? ეს შეუქცევადია!')) {
-        deleteDoc(doc(db, window.currentCollection.path, id)).then(() => showToast('პაციენტი წაიშალა'));
-      }
+    // ქმედებები
+    window.archivePatient = async id => {
+      if (!confirm('გადატანა არქივში?')) return;
+      try {
+        await updateDoc(doc(db, window.currentCollection.path, id), { archived: true, archived_at: serverTimestamp() });
+        showToast('არქივში გადავიდა');
+      } catch (err) { showToast('შეცდომა', true); }
+    };
+
+    window.restorePatient = async id => {
+      if (!confirm('აღდგენა აქტიურებში?')) return;
+      try {
+        await updateDoc(doc(db, window.currentCollection.path, id), { archived: false, archived_at: null });
+        showToast('აღდგენილია');
+      } catch (err) { showToast('შეცდომა', true); }
+    };
+
+    window.deletePatient = async id => {
+      if (!confirm('სამუდამოდ წაშლა?')) return;
+      if (!confirm('დარწმუნებული ხართ? ეს შეუქცევადია!')) return;
+      try {
+        await deleteDoc(doc(db, window.currentCollection.path, id));
+        showToast('პაციენტი წაიშალა');
+      } catch (err) { showToast('წაშლა ვერ მოხერხდა', true); }
     };
 
     window.clearAllData = async function() {
-      if (!confirm("ყველა პაციენტი წაიშლება სამუდამოდ!")) return;
-      if (!confirm("დარწმუნებული ხართ? ეს შეუქცევადია!")) return;
-      const pass = prompt("დაადასტურეთ: ჩაწერეთ „დიახ წაშლა“");
-      if (pass !== "დიახ წაშლა") {
-        showToast('ოპერაცია გაუქმდა');
-        return;
-      }
+      if (!confirm("ყველა პაციენტი წაიშლება!")) return;
+      if (!confirm("დარწმუნებული ხართ?")) return;
+      const pass = prompt("ჩაწერეთ „ტესტი წაშლა“");
+      if (pass !== "ტესტი წაშლა") return showToast('გაუქმდა');
+      
       try {
         const snapshot = await getDocs(window.currentCollection);
         const deletes = snapshot.docs.map(d => deleteDoc(doc(db, window.currentCollection.path, d.id)));
         await Promise.all(deletes);
-        showToast('დარბაზი მთლიანად გასუფთავდა');
+        showToast('დარბაზი გასუფთავდა');
       } catch (err) {
-        showToast('წაშლა ვერ მოხერხდა', true);
+        showToast('ვერ მოხერხდა წაშლა', true);
       }
     };
 
@@ -283,37 +289,17 @@
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
-    }
-    .login-screen {
-      display: flex; gap: 100px; justify-content: center; align-items: center;
-      min-height: 100vh; flex-wrap: wrap;
-    }
-    .room-btn {
-      width: 450px; padding: 80px 40px; background: white; border-radius: 32px;
-      text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.4); cursor: pointer;
-      transition: all 0.4s ease; border: 5px solid transparent;
-    }
-    .room-btn:hover {
-      transform: translateY(-25px) scale(1.08);
-      box-shadow: 0 50px 120px rgba(0,0,0,0.55); border-color: #667eea;
-    }
+    body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .login-screen { display: flex; gap: 100px; justify-content: center; align-items: center; min-height: 100vh; flex-wrap: wrap; }
+    .room-btn { width: 450px; padding: 80px 40px; background: white; border-radius: 32px; text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.4); cursor: pointer; transition: all 0.4s ease; border: 5px solid transparent; }
+    .room-btn:hover { transform: translateY(-25px) scale(1.08); box-shadow: 0 50px 120px rgba(0,0,0,0.55); border-color: #667eea; }
     .room-btn h2 { font-size: 2.8em; color: #333; margin-bottom: 20px; }
     .room-btn p { font-size: 1.4em; color: #666; margin-bottom: 35px; }
     .enter-arrow { font-size: 4.5em; color: #667eea; transition: 0.4s; }
     .room-btn:hover .enter-arrow { color: #5568d3; transform: scale(1.4); }
 
     #app { display: none; }
-    .back-btn {
-      position: fixed; top: 25px; left: 25px; background: rgba(255,255,255,0.3);
-      backdrop-filter: blur(12px); color: white; border: none; padding: 16px 36px;
-      border-radius: 50px; font-size: 1.2em; font-weight: bold; cursor: pointer;
-      z-index: 999; transition: 0.3s;
-    }
+    .back-btn { position: fixed; top: 25px; left: 25px; background: rgba(255,255,255,0.3); backdrop-filter: blur(12px); color: white; border: none; padding: 16px 36px; border-radius: 50px; font-size: 1.2em; font-weight: bold; cursor: pointer; z-index: 999; }
     .back-btn:hover { background: rgba(255,255,255,0.5); transform: scale(1.05); }
 
     .container { max-width: 1500px; margin: 0 auto; padding: 20px; }
@@ -329,12 +315,9 @@
     .card { background: white; padding: 45px; border-radius: 24px; box-shadow: 0 12px 35px rgba(0,0,0,0.14); margin-bottom: 35px; }
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; margin-bottom: 35px; }
     .form-group label { display: block; margin-bottom: 12px; font-weight: 600; color: #333; font-size: 1.1em; }
-    .form-group input, .form-group select, .form-group textarea {
-      width: 100%; padding: 18px; border: 2px solid #e0e0e0; border-radius: 14px; font-size: 17px;
-    }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-      outline: none; border-color: #667eea; box-shadow: 0 0 0 5px rgba(102,126,234,0.15);
-    }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 18px; border: 2px solid #e0e0e0; border-radius: 14px; font-size: 17px; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 5px rgba(102,126,234,0.15); }
+
     .btn { padding: 18px 36px; border: none; border-radius: 14px; cursor: pointer; font-size: 18px; font-weight: 600; transition: all 0.3s; margin: 8px; }
     .btn-primary { background: #667eea; color: white; }
     .btn-primary:hover { background: #5568d3; transform: translateY(-4px); }
@@ -342,11 +325,7 @@
     .btn-success { background: #27ae60; color: white; }
     .btn-delete { background: #c0392b; color: white; font-size: 15px; padding: 10px 18px; }
 
-    .clear-all-btn {
-      background: #e74c3c; color: white; padding: 20px 50px; border: none; border-radius: 14px;
-      font-size: 19px; font-weight: bold; cursor: pointer; margin: 35px auto; display: block;
-      box-shadow: 0 10px 30px rgba(231,76,60,0.45);
-    }
+    .clear-all-btn { background: #e74c3c; color: white; padding: 20px 50px; border: none; border-radius: 14px; font-size: 19px; font-weight: bold; cursor: pointer; margin: 35px auto; display: block; box-shadow: 0 10px 30px rgba(231,76,60,0.45); }
     .clear-all-btn:hover { background: #c0392b; transform: translateY(-5px); }
 
     table { width: 100%; border-collapse: collapse; background: white; border-radius: 18px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.12); margin-top: 25px; }
@@ -360,11 +339,7 @@
     .stat-card h3 { font-size: 1.5em; margin-bottom: 12px; }
     .stat-card .number { font-size: 4.5em; font-weight: bold; }
 
-    .toast {
-      position: fixed; top: 30px; right: 30px; background: #27ae60; color: white;
-      padding: 22px 40px; border-radius: 16px; z-index: 2000; display: none;
-      box-shadow: 0 15px 40px rgba(0,0,0,0.35); font-size: 1.2em; font-weight: bold;
-    }
+    .toast { position: fixed; top: 30px; right: 30px; background: #27ae60; color: white; padding: 22px 40px; border-radius: 16px; z-index: 2000; display: none; box-shadow: 0 15px 40px rgba(0,0,0,0.35); font-size: 1.2em; font-weight: bold; }
     .toast.active { display: block; animation: slideIn 0.5s; }
     .toast.error { background: #e74c3c; }
     @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
@@ -376,21 +351,19 @@
 </head>
 <body>
 
-  <!-- შესვლის ეკრანი -->
   <div class="login-screen" id="login-screen">
     <div class="room-btn" onclick="openRoom('observation')">
       <h2>ობსერვაციის დარბაზი</h2>
-      <p>აქტიური პაციენტები • მონიტორინგი</p>
+      <p>აქტიური პაციენტები</p>
       <div class="enter-arrow">→</div>
     </div>
     <div class="room-btn" onclick="openRoom('shock')">
       <h2>შოკის დარბაზი</h2>
-      <p>კრიტიკული მდგომარეობა • 24/7</p>
+      <p>კრიტიკული მდგომარეობა</p>
       <div class="enter-arrow">→</div>
     </div>
   </div>
 
-  <!-- მთავარი აპლიკაცია -->
   <div id="app">
     <button class="back-btn" onclick="location.reload()">დარბაზის შეცვლა</button>
     <div class="container">
@@ -400,12 +373,11 @@
       </div>
 
       <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab(this, 'active')">აქტიური პაციენტები</button>
+        <button class="tab-btn active" onclick="switchTab(this, 'active')">აქტიური</button>
         <button class="tab-btn" onclick="switchTab(this, 'archive')">არქივი</button>
         <button class="tab-btn" onclick="switchTab(this, 'statistics')">სტატისტიკა</button>
       </div>
 
-      <!-- აქტიური -->
       <div id="active-tab" class="tab-content" style="display: block;">
         <div class="card">
           <h2>ახალი პაციენტის დამატება</h2>
@@ -414,11 +386,10 @@
               <div class="form-group">
                 <label>საწოლი</label>
                 <select id="bed" required>
-                  <option value="">აირჩიეთ საწოლი</option>
-                  <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                  <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
-                  <option value="9">9</option><option value="10">10</option>
-                  <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
+                  <option value="">აირჩიეთ</option>
+                  <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                  <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+                  <option>ლოჯი</option><option>მცირე</option>
                 </select>
               </div>
               <div class="form-group"><label>პაციენტი</label><input type="text" id="patient-name" required></div>
@@ -429,12 +400,12 @@
             <div class="form-group"><label>კომენტარი</label><textarea id="comment" rows="3"></textarea></div>
             <button type="submit" class="btn btn-primary">დამატება</button>
           </form>
-          <button type="button" class="clear-all-btn" onclick="clearAllData()">მთლიანი გასუფთავება (ყველა პაციენტი)</button>
+          <button type="button" class="clear-all-btn" onclick="clearAllData()">ყველას წაშლა (ტესტი)</button>
         </div>
 
         <div class="card">
           <h2>აქტიური პაციენტები</h2>
-          <input type="text" id="search" placeholder="ძებნა პაციენტის, ისტორიის ან ექიმის მიხედვით..." style="padding:18px; width:100%; max-width:650px; border-radius:14px; border:2px solid #ddd; font-size:17px; margin-bottom:25px;">
+          <input type="text" id="search" placeholder="ძებნა..." style="padding:18px; width:100%; max-width:650px; border-radius:14px; border:2px solid #ddd; font-size:17px; margin-bottom:25px;">
           <table>
             <thead>
               <tr>
@@ -453,7 +424,6 @@
         </div>
       </div>
 
-      <!-- არქივი -->
       <div id="archive-tab" class="tab-content" style="display: none;">
         <div class="card">
           <h2>არქივი</h2>
@@ -469,7 +439,6 @@
         </div>
       </div>
 
-      <!-- სტატისტიკა -->
       <div id="statistics-tab" class="tab-content" style="display: none;">
         <div class="card">
           <h2>სტატისტიკა</h2>
@@ -492,12 +461,12 @@
       <h2>პაციენტის რედაქტირება</h2>
       <form id="edit-form">
         <div class="form-grid">
-          <div class="form-group"><label>საწოლი</label>
+          <div class="form-group">
+            <label>საწოლი</label>
             <select id="edit-bed">
-              <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-              <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
-              <option value="9">9</option><option value="10">10</option>
-              <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+              <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+              <option>ლოჯი</option><option>მცირე</option>
             </select>
           </div>
           <div class="form-group"><label>პაციენტი</label><input id="edit-name" required></div>
