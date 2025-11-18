@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ka">
 <head>
   <meta charset="UTF-8">
@@ -30,12 +29,14 @@
     .btn-primary:disabled{background:#ccc;cursor:not-allowed;transform:none;}
     .btn-secondary{background:#f0f0f0;color:#333;}
     .btn-secondary:hover{background:#e0e0e0;}
+    .btn-success{background:#27ae60;color:white;}
+    .btn-success:hover{background:#229954;}
     .btn-danger{background:#e74c3c;color:white;}
     .btn-danger:hover{background:#c0392b;}
     .btn-delete{background:#c0392b;color:white;}
     .btn-delete:hover{background:#a93226;}
     .search-filter{display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;}
-    .search-filter input,.search-filter select{padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;flex:1;min-width:200px;}
+    .search-filter input{padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;flex:1;min-width:200px;}
     .table-container{overflow-x:auto;}
     table{width:100%;border-collapse:collapse;background:white;}
     th,td{padding:15px;text-align:left;border-bottom:1px solid #e0e0e0;}
@@ -63,9 +64,7 @@
     .loading{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-radius:50%;border-top-color:white;animation:spin 1s ease-in-out infinite;margin-left:8px;}
     @keyframes spin{to{transform:rotate(360deg);}}
     .empty-state{text-align:center;padding:60px 20px;color:#999;}
-    @media(max-width:768px){
-      .action-buttons{flex-direction:column;}
-    }
+    @media(max-width:768px){.action-buttons{flex-direction:column;}}
   </style>
 </head>
 <body>
@@ -92,9 +91,8 @@
               <option value="">აირჩიეთ საწოლი</option>
               <option value="1">1</option><option value="2">2</option><option value="3">3</option>
               <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-              <option value="7">7</option><option value="8">8</option>
-              <option value="ლოჯი">ლოჯი</option>
-              <option value="მცირე">მცირე</option>
+              <option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+              <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
             </select>
           </div>
           <div class="form-group"><label for="patient-name">პაციენტის სახელი და გვარი</label>
@@ -134,7 +132,7 @@
               <th onclick="sortTable('icd10_code')">ICD-10</th>
               <th onclick="sortTable('doctor')">ექიმი</th>
               <th>კომენტარი</th>
-              <th onclick="sortTable('admission_date')">თარიღი</th>
+              <th onclick="sortTable('admission_date')">ჩარიცხვა</th>
               <th>მოქმედება</th>
             </tr>
           </thead>
@@ -152,8 +150,15 @@
         <table>
           <thead>
             <tr>
-              <th>საწოლი</th><th>პაციენტი</th><th>ისტორია</th><th>ICD-10</th>
-              <th>ექიმი</th><th>კომენტარი</th><th>ჩარიცხვა</th><th>გადატანა არქივში</th><th>მოქმედება</th>
+              <th>საწოლი</th>
+              <th>პაციენტი</th>
+              <th>ისტორია</th>
+              <th>ICD-10</th>
+              <th>ექიმი</th>
+              <th>კომენტარი</th>
+              <th>ჩარიცხვა</th>
+              <th>არქივში გადატანა</th>
+              <th>მოქმედება</th>
             </tr>
           </thead>
           <tbody id="archive-tbody"></tbody>
@@ -189,7 +194,7 @@
           <select id="edit-bed">
             <option value="1">1</option><option value="2">2</option><option value="3">3</option>
             <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-            <option value="7">7</option><option value="8">8</option>
+            <option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
             <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
           </select>
         </div>
@@ -210,12 +215,12 @@
 <div id="toast" class="toast"></div>
 
 <script>
-  let patients = JSON.parse(localStorage.getItem('inpatient_patients_v3') || '[]');
+  let patients = JSON.parse(localStorage.getItem('inpatient_patients_v5') || '[]');
   let currentSort = { column: 'admission_date', dir: 'desc' };
   let editingIndex = -1;
 
   function saveData() {
-    localStorage.setItem('inpatient_patients_v3', JSON.stringify(patients));
+    localStorage.setItem('inpatient_patients_v5', JSON.stringify(patients));
     renderTables();
     updateStats();
   }
@@ -225,6 +230,13 @@
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('ka-GE', { day: 'numeric', month: 'long', year: 'numeric' }) + 
+           ' – ' + 
+           date.toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' });
   }
 
   function renderTables() {
@@ -292,8 +304,9 @@
         <td>${escapeHtml(p.doctor || '-')}</td>
         <td>${escapeHtml(p.comment || '-')}</td>
         <td>${new Date(p.admission_date).toLocaleDateString('ka-GE')}</td>
-        <td>${new Date(p.deleted_date).toLocaleDateString('ka-GE')}</td>
+        <td>${formatDateTime(p.deleted_date)}</td>
         <td class="action-buttons">
+          <button class="btn btn-success" onclick="restorePatient(${patients.indexOf(p)})">დაბრუნება</button>
           <button class="btn btn-delete" onclick="permanentlyDelete(${patients.indexOf(p)})">წაშლა</button>
         </td>
       </tr>
@@ -336,7 +349,7 @@
       this.reset();
       btn.disabled = false;
       txt.textContent = 'დამატება';
-      showToast('პაციენტი დაემატა');
+      showToast('პაციენტი დამატებულია');
     }, 500);
   });
 
@@ -386,9 +399,19 @@
     }
   }
 
-  // სამუდამოდ წაშლა (არქივიდან)
+  // არქივიდან დაბრუნება
+  function restorePatient(index) {
+    if (confirm('დარწმუნებული ხართ, რომ გსურთ პაციენტის აქტიურ სიაში დაბრუნება?')) {
+      patients[index].archived = false;
+      delete patients[index].deleted_date; // წაშლის თარიღის გასუფთავება
+      saveData();
+      showToast('პაციენტი დაბრუნდა აქტიურ პაციენტებში');
+    }
+  }
+
+  // სამუდამოდ წაშლა
   function permanentlyDelete(index) {
-    if (confirm('გსურთ პაციენტის სამუდამოდ წაშლა? ამის შემდეგ აღდგენა შეუძლებელია!')) {
+    if (confirm('გსურთ პაციენტის სამუდამოდ წაშლა? ეს ქმედება შეუქცევადია!')) {
       patients.splice(index, 1);
       saveData();
       showToast('პაციენტი სამუდამოდ წაიშალა', true);
