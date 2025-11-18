@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="ka">
 <head>
   <meta charset="UTF-8">
@@ -31,8 +32,8 @@
     .btn-secondary:hover{background:#e0e0e0;}
     .btn-danger{background:#e74c3c;color:white;}
     .btn-danger:hover{background:#c0392b;}
-    .btn-success{background:#27ae60;color:white;}
-    .btn-success:hover{background:#229954;}
+    .btn-delete{background:#c0392b;color:white;}
+    .btn-delete:hover{background:#a93226;}
     .search-filter{display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;}
     .search-filter input,.search-filter select{padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;flex:1;min-width:200px;}
     .table-container{overflow-x:auto;}
@@ -63,15 +64,11 @@
     @keyframes spin{to{transform:rotate(360deg);}}
     .empty-state{text-align:center;padding:60px 20px;color:#999;}
     @media(max-width:768px){
-      .header h1{font-size:1.8em;}
-      .form-grid{grid-template-columns:1fr;}
-      .search-filter{flex-direction:column;}
       .action-buttons{flex-direction:column;}
     }
   </style>
 </head>
 <body>
-
 <div class="container">
   <div class="header">
     <h1>საწოლების მართვის სისტემა</h1>
@@ -91,17 +88,17 @@
       <form id="patient-form">
         <div class="form-grid">
           <div class="form-group"><label for="bed">საწოლი</label>
-            <select id="bed">
+            <select id="bed" required>
               <option value="">აირჩიეთ საწოლი</option>
               <option value="1">1</option><option value="2">2</option><option value="3">3</option>
               <option value="4">4</option><option value="5">5</option><option value="6">6</option>
               <option value="7">7</option><option value="8">8</option>
               <option value="ლოჯი">ლოჯი</option>
-              <option value="მცირე ">მცირე </option>
+              <option value="მცირე">მცირე</option>
             </select>
           </div>
           <div class="form-group"><label for="patient-name">პაციენტის სახელი და გვარი</label>
-            <input type="text" id="patient-name" placeholder="მაგ: გიორგი გელაშვილი">
+            <input type="text" id="patient-name" required placeholder="მაგ: გიორგი გელაშვილი">
           </div>
           <div class="form-group"><label for="history-number">ისტორიის ნომერი</label>
             <input type="text" id="history-number" placeholder="მაგ: 12345">
@@ -156,7 +153,7 @@
           <thead>
             <tr>
               <th>საწოლი</th><th>პაციენტი</th><th>ისტორია</th><th>ICD-10</th>
-              <th>ექიმი</th><th>კომენტარი</th><th>ჩარიცხვა</th><th>წაშლა</th>
+              <th>ექიმი</th><th>კომენტარი</th><th>ჩარიცხვა</th><th>გადატანა არქივში</th><th>მოქმედება</th>
             </tr>
           </thead>
           <tbody id="archive-tbody"></tbody>
@@ -184,7 +181,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h2>პაციენტის რედაქტირება</h2>
-      <button class="close-btn" onclick="closeEditModal()">×</button>
+      <button class="close-btn" onclick="closeEditModal()">X</button>
     </div>
     <form id="edit-form">
       <div class="form-grid">
@@ -193,7 +190,7 @@
             <option value="1">1</option><option value="2">2</option><option value="3">3</option>
             <option value="4">4</option><option value="5">5</option><option value="6">6</option>
             <option value="7">7</option><option value="8">8</option>
-            <option value="ლოჯი">ლოჯი</option><option value="მცირე ">მცირე </option>
+            <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
           </select>
         </div>
         <div class="form-group"><label>პაციენტი</label><input id="edit-name" required></div>
@@ -213,13 +210,12 @@
 <div id="toast" class="toast"></div>
 
 <script>
-  // მონაცემები localStorage-ში
-  let patients = JSON.parse(localStorage.getItem('inpatient_patients_v2') || '[]');
+  let patients = JSON.parse(localStorage.getItem('inpatient_patients_v3') || '[]');
   let currentSort = { column: 'admission_date', dir: 'desc' };
   let editingIndex = -1;
 
   function saveData() {
-    localStorage.setItem('inpatient_patients_v2', JSON.stringify(patients));
+    localStorage.setItem('inpatient_patients_v3', JSON.stringify(patients));
     renderTables();
     updateStats();
   }
@@ -240,16 +236,15 @@
     let list = patients.filter(p => !p.archived);
     const search = document.getElementById('search').value.toLowerCase();
     if (search) {
-      list = list.filter(p => 
-        (p.patient_name || '').toLowerCase().includes(search) || 
+      list = list.filter(p =>
+        (p.patient_name || '').toLowerCase().includes(search) ||
         (p.history_number || '').includes(search)
       );
     }
 
-    // სორტირება
     list.sort((a, b) => {
-      let av = a[currentSort.column] || '';
-      let bv = b[currentSort.column] || '';
+      let av = a[currentSort.column] ?? '';
+      let bv = b[currentSort.column] ?? '';
       if (currentSort.column === 'admission_date') {
         av = new Date(av).getTime();
         bv = new Date(bv).getTime();
@@ -284,10 +279,11 @@
     const list = patients.filter(p => p.archived);
     const tbody = document.getElementById('archive-tbody');
     if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">არქივი ცარიელია</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">არქივი ცარიელია</td></tr>';
       return;
     }
-    tbody.innerHTML = list.map(p => `
+
+    tbody.innerHTML = list.map((p, i) => `
       <tr>
         <td>${escapeHtml(p.bed || '-')}</td>
         <td>${escapeHtml(p.patient_name || '-')}</td>
@@ -297,6 +293,9 @@
         <td>${escapeHtml(p.comment || '-')}</td>
         <td>${new Date(p.admission_date).toLocaleDateString('ka-GE')}</td>
         <td>${new Date(p.deleted_date).toLocaleDateString('ka-GE')}</td>
+        <td class="action-buttons">
+          <button class="btn btn-delete" onclick="permanentlyDelete(${patients.indexOf(p)})">წაშლა</button>
+        </td>
       </tr>
     `).join('');
   }
@@ -314,7 +313,7 @@
     document.getElementById('stat-archived').textContent = archived;
   }
 
-  // დამატება
+  // ახალი პაციენტის დამატება
   document.getElementById('patient-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const btn = document.getElementById('submit-btn');
@@ -333,7 +332,6 @@
         admission_date: new Date().toISOString(),
         archived: false
       });
-
       saveData();
       this.reset();
       btn.disabled = false;
@@ -373,7 +371,6 @@
       doctor: document.getElementById('edit-doctor').value.trim(),
       comment: document.getElementById('edit-comment').value.trim()
     };
-
     saveData();
     closeEditModal();
     showToast('ცვლილებები შენახულია');
@@ -386,6 +383,15 @@
       patients[index].deleted_date = new Date().toISOString();
       saveData();
       showToast('პაციენტი გადავიდა არქივში');
+    }
+  }
+
+  // სამუდამოდ წაშლა (არქივიდან)
+  function permanentlyDelete(index) {
+    if (confirm('გსურთ პაციენტის სამუდამოდ წაშლა? ამის შემდეგ აღდგენა შეუძლებელია!')) {
+      patients.splice(index, 1);
+      saveData();
+      showToast('პაციენტი სამუდამოდ წაიშალა', true);
     }
   }
 
@@ -411,10 +417,9 @@
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.className = 'toast active' + (error ? ' error' : '');
-    setTimeout(() => t.classList.remove('active'), 3000);
+    setTimeout(() => t.classList.remove('active'), 4000);
   }
 
-  // მოვლენები
   document.getElementById('search').addEventListener('input', renderActive);
 
   // ინიციალიზაცია
