@@ -8,7 +8,7 @@
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, serverTimestamp, query,  orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCDze1tz15HdKZVSPOPW_-7t-9ag4AiZYs",
@@ -16,13 +16,13 @@
       projectId: "clinic-inpatient",
       storageBucket: "clinic-inpatient.firebasestorage.app",
       messagingSenderId: "586729386322",
-      appId: "1:586729386322:web:17a92324784c2c988a4a8b",
-      measurementId: "G-Z0NSEFB7EF"
+      appId: "1:586729386322:web:17a92324784c2c988a4a8b"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // გლობალური ცვლადები
     window.db = db;
     window.currentCollection = null;
     window.patients = [];
@@ -33,7 +33,7 @@
       const toast = document.getElementById('toast');
       toast.textContent = msg;
       toast.className = 'toast active' + (error ? ' error' : '');
-      setTimeout(() => toast.classList.remove('active'), 5000);
+      setTimeout(() => toast.classList.remove('active'), 4000);
     };
   </script>
 
@@ -46,7 +46,7 @@
       padding: 30px;
     }
 
-    /* შესვლის ეკრანი — ჰორიზონტალურად ორი ღილაკი */
+    /* შესვლის ეკრანი */
     .login-screen {
       display: flex;
       gap: 80px;
@@ -130,7 +130,7 @@
     .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); margin-bottom: 30px; }
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-bottom: 30px; }
     .form-group label { display: block; margin-bottom: 10px; font-weight: 600; color: #333; }
-    .form-group input, .form-group select, .form-groupTextarea {
+    .form-group input, .form-group select, .form-group textarea {
       width: 100%; padding: 16px; border: 2px solid #e0e0e0; border-radius: 12px; font-size: 16px; transition: border 0.3s;
     }
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
@@ -145,16 +145,8 @@
     .btn-delete { background: #c0392b; color: white; font-size: 14px; padding: 8px 16px; }
 
     .clear-all-btn {
-      background: #e74c3c;
-      color: white;
-      padding: 18px 40px;
-      border: none;
-      border-radius: 12px;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
-      margin: 30px auto;
-      display: block;
+      background: #e74c3c; color: white; padding: 18px 40px; border: none; border-radius: 12px;
+      font-size: 18px; font-weight: bold; cursor: pointer; margin: 30px auto; display: block;
       box-shadow: 0 8px 25px rgba(231,76,60,0.4);
     }
     .clear-all-btn:hover { background: #c0392b; transform: translateY(-4px); }
@@ -164,7 +156,6 @@
     th { background: #f8f9fa; font-weight: 600; color: #333; cursor: pointer; user-select: none; }
     th:hover { background: #eef0ff; }
     tr:hover { background: #f8f9ff; }
-
     .action-buttons button { margin: 4px; }
 
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-top: 20px; }
@@ -184,6 +175,15 @@
     .toast.error { background: #e74c3c; }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
+    .modal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000;
+      justify-content: center; align-items: center;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: white; padding: 40px; border-radius: 20px; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto;
+    }
+
     @media (max-width: 900px) {
       .login-screen { gap: 40px; }
       .room-btn { width: 90%; max-width: 400px; }
@@ -192,7 +192,7 @@
 </head>
 <body>
 
-<!-- შესვლა — ჰორიზონტალურად -->
+<!-- შესვლის ეკრანი -->
 <div class="login-screen">
   <div class="room-btn" onclick="openRoom('observation')">
     <h2>ობსერვაციის დარბაზი</h2>
@@ -222,7 +222,7 @@
       <button class="tab-btn" onclick="switchTab('statistics')">სტატისტიკა</button>
     </div>
 
-    <!-- აქტიური -->
+    <!-- აქტიური პაციენტები -->
     <div id="active-tab" class="tab-content active">
       <div class="card">
         <h2>ახალი პაციენტის დამატება</h2>
@@ -231,19 +231,19 @@
             <div class="form-group">
               <label>საწოლი</label>
               <select id="bed" required>
-                <option value="">აირჩიეთ საწოლი</option>
+                <option value="">აირჩიეთ</option>
                 <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
                 <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
                 <option value="9">9</option><option value="10">10</option>
                 <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
               </select>
             </div>
-            <div class="form-group"><label>პაციენტი</label><input type="text" id="patient-name" required placeholder="სახელი გვარი"></div>
-            <div class="form-group"><label>ისტორია</label><input type="text" id="history-number" placeholder="123456"></div>
-            <div class="form-group"><label>ICD-10</label><input type="text" id="icd10" placeholder="J18.9"></div>
-            <div class="form-group"><label>ექიმი</label><input type="text" id="doctor" placeholder="დ. ბერიძე"></div>
+            <div class="form-group"><label>პაციენტი</label><input type="text" id="patient-name" required></div>
+            <div class="form-group"><label>ისტორია</label><input type="text" id="history-number"></div>
+            <div class="form-group"><label>ICD-10</label><input type="text" id="icd10"></div>
+            <div class="form-group"><label>ექიმი</label><input type="text" id="doctor"></div>
           </div>
-          <div class="form-group"><label>კომენტარი</label><textarea id="comment" rows="3" placeholder="დამატებითი ინფორმაცია..."></textarea></div>
+          <div class="form-group"><label>კომენტარი</label><textarea id="comment" rows="3"></textarea></div>
           <button type="submit" class="btn btn-primary">დამატება</button>
         </form>
 
@@ -254,7 +254,7 @@
 
       <div class="card">
         <h2>აქტიური პაციენტები</h2>
-        <input type="text" id="search" placeholder="ძებნა სახელით ან ისტორიით..." style="padding:16px; width:100%; max-width:600px; border-radius:12px; border:2px solid #ddd; font-size:16px; margin-bottom:20px;">
+        <input type="text" id="search" placeholder="ძებნა..." style="padding:16px; width:100%; max-width:600px; border-radius:12px; border:2px solid #ddd; font-size:16px; margin-bottom:20px;">
         <table>
           <thead>
             <tr>
@@ -296,33 +296,61 @@
         <div class="stats-grid">
           <div class="stat-card"><h3>აქტიური</h3><div class="number" id="stat-active">0</div></div>
           <div class="stat-card"><h3>დღეს დამატებული</h3><div class="number" id="stat-today-added">0</div></div>
-          <div class="stat-card"><h3>დღეს არქივში გადატანილი</h3><div class="number" id="stat-today-deleted">0</div></div>
+          <div class="stat-card"><h3>დღეს არქივში</h3><div class="number" id="stat-today-deleted">0</div></div>
           <div class="stat-card"><h3>სულ არქივში</h3><div class="number" id="stat-archived">0</div></div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Toast -->
   <div id="toast" class="toast"></div>
 </div>
 
+<!-- რედაქტირების მოდალი -->
+<div id="edit-modal" class="modal">
+  <div class="modal-content">
+    <h2 style="margin-bottom:25px;">პაციენტის რედაქტირება</h2>
+    <form id="edit-form">
+      <div class="form-grid">
+        <div class="form-group"><label>საწოლი</label>
+          <select id="edit-bed">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+            <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+            <option value="9">9</option><option value="10">10</option>
+            <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
+          </select>
+        </div>
+        <div class="form-group"><label>პაციენტი</label><input id="edit-name" required></div>
+        <div class="form-group"><label>ისტორია</label><input id="edit-history"></div>
+        <div class="form-group"><label>ICD-10</label><input id="edit-icd"></div>
+        <div class="form-group"><label>ექიმი</label><input id="edit-doctor"></div>
+      </div>
+      <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment" rows="3"></textarea></div>
+      <div style="display:flex; gap:15px; justify-content:flex-end; margin-top:25px;">
+        <button type="button" class="btn" style="background:#f0f0f0; color:#333;" onclick="document.getElementById('edit-modal').classList.remove('active')">გაუქმება</button>
+        <button type="submit" class="btn btn-primary">შენახვა</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script type="module">
-  import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-
-  function openRoom(room) {
-    window.currentCollection = collection(window.db, room === 'observation' ? 'observation_room' : 'shock_room');
-    document.querySelector('.login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    document.getElementById('room-title').textContent = room === 'observation' ? 'ობსერვაციის დარბაზი' : 'შოკის დარბაზი';
-    window.loadPatients();
-  }
-
+  // ყველა ფუნქცია აქ არის
   function escapeHtml(text) { return text ? String(text).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]) : ''; }
   function formatDate(ts) {
-    if (!ts) return '-';
+    if (!ts || !ts.toDate) return '-';
     const d = ts.toDate();
     return d.toLocaleDateString('ka-GE', {day:'numeric', month:'long', year:'numeric'}) + ' ' + d.toLocaleTimeString('ka-GE', {hour:'2-digit', minute:'2-digit'});
   }
+
+  window.openRoom = function(room) {
+    window.currentCollection = collection(window.db, room === 'observation' ? 'observation_room' : 'shock_room');
+    document.querySelector('.login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('room-title').textContent = room === 'observation' ? 'ობსერვაციის დარბაზი' : 'შოკის დარბაზიressa';
+    loadPatients();
+  };
 
   window.renderTables = function() {
     const active = window.patients.filter(p => !p.archived);
@@ -343,12 +371,12 @@
       '<tr><td colspan="8" class="empty-state">პაციენტები არ არის</td></tr>' :
       list.map(p => `
         <tr>
-          <td>${escapeHtml(p.bed)}</td>
-          <td>${escapeHtml(p.patient_name)}</td>
-          <td>${escapeHtml(p.history_number)}</td>
-          <td>${escapeHtml(p.icd10_code)}</td>
-          <td>${escapeHtml(p.doctor)}</td>
-          <td>${escapeHtml(p.comment)}</td>
+          <td>${escapeHtml(p.bed || '-')}</td>
+          <td>${escapeHtml(p.patient_name || '-')}</td>
+          <td>${escapeHtml(p.history_number || '-')}</td>
+          <td>${escapeHtml(p.icd10_code || '-')}</td>
+          <td>${escapeHtml(p.doctor || '-')}</td>
+          <td>${escapeHtml(p.comment || '-')}</td>
           <td>${formatDate(p.timestamp)}</td>
           <td class="action-buttons">
             <button class="btn btn-primary" onclick="openEdit('${p.id}')">რედაქტირება</button>
@@ -362,12 +390,12 @@
       '<tr><td colspan="9" class="empty-state">არქივი ცარიელია</td></tr>' :
       archived.map(p => `
         <tr>
-          <td>${escapeHtml(p.bed)}</td>
-          <td>${escapeHtml(p.patient_name)}</td>
-          <td>${escapeHtml(p.history_number)}</td>
-          <td>${escapeHtml(p.icd10_code)}</td>
-          <td>${escapeHtml(p.doctor)}</td>
-          <td>${escapeHtml(p.comment)}</td>
+          <td>${escapeHtml(p.bed || '-')}</td>
+          <td>${escapeHtml(p.patient_name || '-')}</td>
+          <td>${escapeHtml(p.history_number || '-')}</td>
+          <td>${escapeHtml(p.icd10_code || '-')}</td>
+          <td>${escapeHtml(p.doctor || '-')}</td>
+          <td>${escapeHtml(p.comment || '-')}</td>
           <td>${formatDate(p.timestamp)}</td>
           <td>${formatDate(p.archived_at)}</td>
           <td class="action-buttons">
@@ -391,22 +419,15 @@
     document.getElementById('stat-archived').textContent = archived;
   };
 
-  // გასუფთავება
   window.clearAllData = async function() {
-    if (!confirm("გსურთ მთლიანად გაასუფთავოთ ეს დარბაზი?\nყველა პაციენტი სამუდამოდ წაიშლება!")) return;
-    if (!confirm("ბოლო გაფრთხილება! ეს ქმედება შეუქცევადია!\nდარწმუნებული ხართ?")) return;
-
-    try {
-      const snapshot = await getDocs(window.currentCollection);
-      const deletes = snapshot.docs.map(d => deleteDoc(doc(window.db, window.currentCollection.path, d.id)));
-      await Promise.all(deletes);
-      showToast('დარბაზი მთლიანად გასუფთავდა!', false);
-    } catch (err) {
-      showToast('შეცდომა: ' + err.message, true);
-    }
+    if (!confirm("ყველა პაციენტი წაიშლება! გავაგრძელო?")) return;
+    if (!confirm("სამუდამოდ წაშლა! დარწმუნებული ხართ?")) return;
+    const snapshot = await getDocs(window.currentCollection);
+    const deletes = snapshot.docs.map(d => deleteDoc(doc(window.db, window.currentCollection.path, d.id)));
+    await Promise.all(deletes);
+    showToast('დარბაზი გასუფთავდა');
   };
 
-  // დამატება
   document.getElementById('patient-form').onsubmit = async function(e) {
     e.preventDefault();
     await addDoc(window.currentCollection, {
@@ -420,22 +441,20 @@
       timestamp: serverTimestamp()
     });
     this.reset();
-    showToast('პაციენტი დამატებულია');
+    showToast('დამატებულია');
   };
 
   window.openEdit = function(id) {
     const p = window.patients.find(x => x.id === id);
     window.editingDocId = id;
-    document.getElementById('edit-bed').value = p.bed;
-    document.getElementById('edit-name').value = p.patient_name;
+    document.getElementById('edit-bed').value = p.bed || '';
+    document.getElementById('edit-name').value = p.patient_name || '';
     document.getElementById('edit-history').value = p.history_number || '';
     document.getElementById('edit-icd').value = p.icd10_code || '';
     document.getElementById('edit-doctor').value = p.doctor || '';
     document.getElementById('edit-comment').value = p.comment || '';
     document.getElementById('edit-modal').classList.add('active');
   };
-
-  window.closeEditModal = () => document.getElementById('edit-modal').classList.remove('active');
 
   document.getElementById('edit-form').onsubmit = async function(e) {
     e.preventDefault();
@@ -447,13 +466,13 @@
       doctor: document.getElementById('edit-doctor').value.trim(),
       comment: document.getElementById('edit-comment').value.trim()
     });
-    closeEditModal();
+    document.getElementById('edit-modal').classList.remove('active');
     showToast('შენახულია');
   };
 
   window.archivePatient = id => confirm('არქივში გადატანა?') && updateDoc(doc(window.db, window.currentCollection.path, id), { archived: true, archived_at: serverTimestamp() }).then(() => showToast('არქივშია'));
   window.restorePatient = id => confirm('დაბრუნება?') && updateDoc(doc(window.db, window.currentCollection.path, id), { archived: false, archived_at: null }).then(() => showToast('დაბრუნდა'));
-  window.deletePatient = id => confirm('სამუდამოდ წაშლა?') && deleteDoc(doc(window.db, window.currentCollection.path, id)).then(() => showToast('წაიშალა'));
+  window.deletePatient = id => confirm('წაშლა?') && deleteDoc(doc(window.db, window.currentCollection.path, id)).then(() => showToast('წაიშალა'));
 
   window.sortTable = col => {
     if (window.currentSort.column === col) window.currentSort.dir = window.currentSort.dir === 'asc' ? 'desc' : 'asc';
@@ -464,13 +483,14 @@
   window.switchTab = tab => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
+    event.target.classList.add('active');
     document.getElementById(tab + '-tab').classList.add('active');
   };
 
   document.getElementById('search').addEventListener('input', renderTables);
 
   window.loadPatients = function() {
+    if (!window.currentCollection) return;
     const q = query(window.currentCollection, orderBy("timestamp", "desc"));
     onSnapshot(q, snapshot => {
       window.patients = [];
@@ -480,27 +500,5 @@
     });
   };
 </script>
-
-<!-- მოდალი (რედაქტირებისთვის) -->
-<div id="edit-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
-  <div class="modal-content" style="background:white; padding:40px; border-radius:20px; width:90%; max-width:700px;">
-    <h2 style="margin-bottom:25px;">რედაქტირება</h2>
-    <form id="edit-form">
-      <div class="form-grid">
-        <div class="form-group"><label>საწოლი</label><select id="edit-bed"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option></select></div>
-        <div class="form-group"><label>პაციენტი</label><input id="edit-name" required></div>
-        <div class="form-group"><label>ისტორია</label><input id="edit-history"></div>
-        <div class="form-group"><label>ICD-10</label><input id="edit-icd"></div>
-        <div class="form-group"><label>ექიმი</label><input id="edit-doctor"></div>
-      </div>
-      <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment" rows="3"></textarea></div>
-      <div style="display:flex; gap:15px; justify-content:flex-end; margin-top:25px;">
-        <button type="button" class="btn" style="background:#f0f0f0; color:#333;" onclick="closeEditModal()">გაუქმება</button>
-        <button type="submit" class="btn btn-primary">შენახვა</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 </body>
 </html>
