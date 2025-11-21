@@ -4,12 +4,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>საწოლების მართვის სისტემა</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
+
   <!-- Firebase 10+ (Module) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
     import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-
     const firebaseConfig = {
       apiKey: "AIzaSyCDze1tz15HdKZVSPOPW_-7t-9ag4AiZYs",
       authDomain: "clinic-inpatient.firebaseapp.com",
@@ -18,15 +17,12 @@
       messagingSenderId: "586729386322",
       appId: "1:586729386322:web:17a92324784c2c988a4a8b"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-
     let currentCollection = null;
     let patients = [];
     let currentSort = { column: 'timestamp', dir: 'desc' };
     let editingId = null;
-
     // Toast შეტყობინება
     function showToast(msg, error = false) {
       const t = document.getElementById('toast');
@@ -34,7 +30,6 @@
       t.className = 'toast active' + (error ? ' error' : '');
       setTimeout(() => t.classList.remove('active'), 4000);
     }
-
     // დაცვა HTML-ისგან
     function escapeHtml(text) {
       if (!text) return '-';
@@ -42,7 +37,6 @@
       div.textContent = text;
       return div.innerHTML;
     }
-
     // თარიღის ფორმატი
     function formatDate(ts) {
       if (!ts || !ts.toDate) return '-';
@@ -51,7 +45,6 @@
         hour: '2-digit', minute: '2-digit'
       });
     }
-
     // დარბაზის გახსნა
     window.openRoom = function(room) {
       currentCollection = collection(db, room === 'observation' ? 'observation_room' : 'shock_room');
@@ -60,7 +53,6 @@
       document.querySelector('.header h1').textContent = room === 'observation' ? 'ობსერვაციის დარბაზი' : 'შოკის დარბაზი';
       loadPatients();
     };
-
     // პაციენტების ჩატვირთვა
     function loadPatients() {
       if (!currentCollection) return;
@@ -72,7 +64,6 @@
         updateStats();
       });
     }
-
     // აქტიური პაციენტების რენდერი
     function renderActive() {
       let list = patients.filter(p => !p.archived);
@@ -84,7 +75,6 @@
           (p.bed || '').toLowerCase().includes(search)
         );
       }
-
       // დახარისხება
       list.sort((a, b) => {
         let av = a[currentSort.column] ?? '';
@@ -95,7 +85,6 @@
         }
         return (av < bv ? -1 : 1) * (currentSort.dir === 'asc' ? 1 : -1);
       });
-
       const tbody = document.getElementById('active-tbody');
       tbody.innerHTML = list.length === 0
         ? '<tr><td colspan="8" class="empty-state">პაციენტები არ არის</td></tr>'
@@ -116,7 +105,6 @@
           </tr>
         `).join('');
     }
-
     // არქივის რენდერი
     function renderArchive() {
       const list = patients.filter(p => p.archived);
@@ -140,7 +128,6 @@
           </tr>
         `).join('');
     }
-
     // სტატისტიკის განახლება
     function updateStats() {
       const today = new Date().toDateString();
@@ -148,13 +135,11 @@
       const archived = patients.filter(p => p.archived).length;
       const addedToday = patients.filter(p => !p.archived && p.timestamp?.toDate?.().toDateString() === today).length;
       const dischargedToday = patients.filter(p => p.archived && p.archived_at?.toDate?.().toDateString() === today).length;
-
       document.getElementById('stat-active').textContent = active;
       document.getElementById('stat-today-added').textContent = addedToday;
       document.getElementById('stat-today-deleted').textContent = dischargedToday;
       document.getElementById('stat-archived').textContent = archived;
     }
-
     // პაციენტის დამატება
     document.getElementById('patient-form').addEventListener('submit', async e => {
       e.preventDefault();
@@ -175,7 +160,6 @@
         showToast('შეცდომა: ' + err.message, true);
       }
     });
-
     // რედაქტირების მოდალი
     window.openEditModal = id => {
       const p = patients.find(x => x.id === id);
@@ -189,9 +173,7 @@
       document.getElementById('edit-comment').value = p.comment || '';
       document.getElementById('edit-modal').classList.add('active');
     };
-
     window.closeEditModal = () => document.getElementById('edit-modal').classList.remove('active');
-
     document.getElementById('edit-form').addEventListener('submit', async e => {
       e.preventDefault();
       try {
@@ -209,7 +191,6 @@
         showToast('შეცდომა: ' + err.message, true);
       }
     });
-
     // არქივში გადატანა / აღდგენა / წაშლა
     window.archivePatient = id => {
       if (confirm('არქივში გადატანა?')) {
@@ -217,21 +198,18 @@
           .then(() => showToast('არქივში გადავიდა'));
       }
     };
-
     window.restorePatient = id => {
       if (confirm('აღდგენა აქტიურ პაციენტებში?')) {
         updateDoc(doc(db, currentCollection.path, id), { archived: false, archived_at: null })
           .then(() => showToast('პაციენტი აღდგენილია'));
       }
     };
-
     window.permanentlyDelete = id => {
       if (confirm('სამუდამოდ წაშლა? (შეუქცევადია!)') && confirm('დარწმუნებული ხართ?')) {
         deleteDoc(doc(db, currentCollection.path, id))
           .then(() => showToast('პაციენტი წაიშალა'));
       }
     };
-
     // ყველას წაშლა
     window.clearAllData = async () => {
       if (!confirm('ყველა პაციენტი წაიშლება სამუდამოდ!') || !confirm('დარწმუნებული ხართ?')) return;
@@ -239,7 +217,6 @@
       await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
       showToast('დარბაზი გასუფთავდა');
     };
-
     // სორტირება
     window.sortTable = col => {
       if (currentSort.column === col) {
@@ -250,7 +227,6 @@
       }
       renderActive();
     };
-
     // ტაბების გადართვა
     window.switchTab = tab => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -258,11 +234,9 @@
       document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
       document.getElementById(tab + '-tab').classList.add('active');
     };
-
     // ძებნა
     document.getElementById('search')?.addEventListener('input', renderActive);
   </script>
-
   <style>
     :root {
       --primary: #2563eb;
@@ -274,7 +248,6 @@
       --danger: #ef4444;
       --warning: #f59e0b;
     }
-
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       font-family: 'Roboto', sans-serif;
@@ -282,7 +255,6 @@
       color: #1e293b;
       min-height: 100vh;
     }
-
     .welcome {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       min-height: 100vh; text-align: center; padding: 2rem;
@@ -296,22 +268,18 @@
       min-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); transition: all 0.3s;
     }
     .room-choice:hover { transform: translateY(-10px); box-shadow: 0 25px 50px rgba(59,130,246,0.3); }
-
     .back-to-rooms {
       position: fixed; top: 1.5rem; left: 1.5rem; background: white; color: #2563eb;
       border: none; padding: 0.8rem 1.8rem; border-radius: 50px; font-weight: 600;
       cursor: pointer; z-index: 999; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     }
-
     #app-container { display: none; padding-top: 6rem; }
     .container { max-width: 1500px; margin: 0 auto; padding: 0 1.5rem; }
-
     .header {
       background: white; padding: 2.5rem; border-radius: 20px; text-align: center;
       margin-bottom: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     }
     .header h1 { font-size: 3rem; color: #1d4ed8; margin-bottom: 0.5rem; }
-
     .tabs {
       display: flex; gap: 1rem; margin-bottom: 2rem; background: white;
       padding: 1rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08);
@@ -323,10 +291,8 @@
     }
     .tab-btn:hover { background: #f1f5f9; }
     .tab-btn.active { background: var(--primary); color: white; }
-
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-
     .card {
       background: white; border-radius: 20px; padding: 2rem; margin-bottom: 2rem;
       box-shadow: 0 10px 30px rgba(0,0,0,0.08);
@@ -335,7 +301,6 @@
       font-size: 1.8rem; margin-bottom: 1.5rem; color: #1e293b;
       padding-bottom: 0.8rem; border-bottom: 3px solid var(--primary-light); display: inline-block;
     }
-
     .form-grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 1.5rem; margin-bottom: 1.5rem;
@@ -348,7 +313,6 @@
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
       outline: none; border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
     }
-
     .btn {
       padding: 0.9rem 1.8rem; border: none; border-radius: 12px; cursor: pointer;
       font-weight: 600; font-size: 1rem; transition: all 0.3s;
@@ -359,12 +323,10 @@
     .btn-archive { background: var(--warning); color: white; }
     .btn-restore { background: var(--success); color: white; }
     .btn-delete { background: var(--danger); color: white; }
-
     .search-filter input {
       width: 100%; max-width: 500px; padding: 1rem 1.2rem; border-radius: 14px;
       border: 2px solid #e2e8f0; font-size: 1.1rem; margin-bottom: 1rem;
     }
-
     table {
       width: 100%; border-collapse: collapse; background: white;
       border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08);
@@ -376,7 +338,6 @@
     td { padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9; }
     tr:hover { background: #f8fafc; }
     .action-buttons { display: flex; gap: 0.8rem; flex-wrap: wrap; }
-
     .stats-grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;
     }
@@ -386,35 +347,99 @@
       box-shadow: 0 15px 35px rgba(59,130,246,0.25);
     }
     .stat-card .number { font-size: 3.8rem; font-weight: 700; margin: 0.8rem 0; }
-
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
-    .modal.active { display: flex; }
-    .modal-content { background: white; padding: 2.5rem; border-radius: 20px; max-width: 650px; width: 90%; box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
-
     .toast {
       position: fixed; top: 2rem; right: 2rem; padding: 1.2rem 2rem; border-radius: 14px;
       color: white; font-weight: 600; z-index: 2000; opacity: 0; transform: translateX(100%); transition: all 0.4s ease;
     }
     .toast.active { opacity: 1; transform: translateX(0); background: var(--success); }
     .toast.error { background: var(--danger); }
-
     .clear-all-btn {
       background: var(--danger); color: white; padding: 1.2rem 2.5rem; border: none;
       border-radius: 14px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 2rem;
     }
     .clear-all-btn:hover { background: #b91c1c; }
-
     .empty-state { text-align: center; padding: 5rem 1rem; color: #94a3b8; font-size: 1.3rem; }
 
+    /* გაუმჯობესებული მოდალი – ყველა ღილაკი ყოველთვის ხელმისაწვდომია */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 620px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+    }
+    .modal-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.7rem;
+      color: #1d4ed8;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 2.2rem;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-body {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer {
+      padding: 1.5rem 2rem;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+    .modal .form-grid { gap: 1.2rem; }
+    .modal .form-group label { font-size: 0.95rem; margin-bottom: 0.5rem; }
+    .modal .form-group input,
+    .modal .form-group select,
+    .modal .form-group textarea {
+      padding: 0.9rem;
+      font-size: 0.95rem;
+    }
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }
       .action-buttons { flex-direction: column; }
       .room-choice { min-width: 300px; padding: 2rem 3rem; font-size: 1.8rem; }
+      .modal-content { max-width: 95%; }
     }
   </style>
 </head>
 <body>
-
   <!-- მისალმება -->
   <div id="welcome-screen" class="welcome">
     <h1>საწოლების მართვა</h1>
@@ -426,7 +451,6 @@
   <!-- მთავარი აპლიკაცია -->
   <div id="app-container">
     <button class="back-to-rooms" onclick="location.reload()">დარბაზის შეცვლა</button>
-
     <div class="container">
       <div class="header">
         <h1>დარბაზი</h1>
@@ -509,7 +533,7 @@
         <div class="card">
           <h2>დღიური სტატისტიკა</h2>
           <div class="stats-grid">
-            <div class="stat-card"><h3>აქტიური პაციენტები</h3><div class="number" id="stat-active">0</div></div>
+            <div class="stat-card"><h3>აქტიური პაციენტები</h3><div class="number" id="stat-act ive">0</div></div>
             <div class="stat-card"><h3>დღეს დამატებული</h3><div class="number" id="stat-today-added">0</div></div>
             <div class="stat-card"><h3>დღეს გაწერილი</h3><div class="number" id="stat-today-deleted">0</div></div>
             <div class="stat-card"><h3>სულ არქივში</h3><div class="number" id="stat-archived">0</div></div>
@@ -518,38 +542,41 @@
       </div>
     </div>
 
-    <!-- რედაქტირების მოდალი -->
+    <!-- გაუმჯობესებული რედაქტირების მოდალი -->
     <div id="edit-modal" class="modal">
       <div class="modal-content">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-          <h2 style="margin:0; color:#1d4ed8;">პაციენტის რედაქტირება</h2>
-          <button onclick="closeEditModal()" style="background:none; border:none; font-size:2.5rem; color:#94a3b8; cursor:pointer;">x</button>
+        <div class="modal-header">
+          <h2>პაციენტის რედაქტირება</h2>
+          <button class="modal-close" onclick="closeEditModal()">×</button>
         </div>
-        <form id="edit-form">
-          <div class="form-grid">
-            <div class="form-group"><label>საწოლი</label>
-              <select id="edit-bed">
-                <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
-                <option value="9">9</option><option value="10">10</option><option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
-              </select>
+        <div class="modal-body">
+          <form id="edit-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>საწოლი</label>
+                <select id="edit-bed">
+                  <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                  <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                  <option value="9">9</option><option value="10">10</option>
+                  <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
+                </select>
+              </div>
+              <div class="form-group"><label>პაციენტი</label><input id="edit-name" required></div>
+              <div class="form-group"><label>ისტორია</label><input id="edit-history"></div>
+              <div class="form-group"><label>ICD-10</label><input id="edit-icd"></div>
+              <div class="form-group"><label>ექიმი</label><input id="edit-doctor"></div>
             </div>
-            <div class="form-group"><label>პაციენტი</label><input id="edit-name" required></div>
-            <div class="form-group"><label>ისტორია</label><input id="edit-history"></div>
-            <div class="form-group"><label>ICD-10</label><input id="edit-icd"></div>
-            <div class="form-group"><label>ექიმი</label><input id="edit-doctor"></div>
-          </div>
-          <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment" rows="3"></textarea></div>
-          <div style="display:flex; gap:1rem; justify-content:flex-end; margin-top:2rem;">
-            <button type="button" class="btn" style="background:#94a3b8; color:white;" onclick="closeEditModal()">გაუქმება</button>
-            <button type="submit" class="btn btn-primary">შენახვა</button>
-          </div>
-        </form>
+            <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment" rows="3"></textarea></div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn" style="background:#94a3b8; color:white;" onclick="closeEditModal()">გაუქმება</button>
+          <button type="submit" form="edit-form" class="btn btn-primary">შენახვა</button>
+        </div>
       </div>
     </div>
 
     <div id="toast" class="toast"></div>
   </div>
-
 </body>
 </html>
