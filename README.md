@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="ka">
 <head>
   <meta charset="UTF-8">
@@ -21,8 +22,19 @@
     const db = getFirestore(app);
     let currentCollection = null;
     let patients = [];
-    let currentSort = { column: 'timestamp', dir: 'desc' };
+    let currentSort = { column: 'bed_order', dir: 'asc' }; // ახალი ნაგულისხმევი სორტირება საწოლით
     let editingId = null;
+
+    // საწოლების თანმიმდევრული სორტირების ფუნქცია
+    function getBedOrder(bed) {
+      if (!bed) return 999;
+      const num = parseInt(bed);
+      if (!isNaN(num) && num >= 1 && num <= 10) return num;
+      if (bed === 'ლოჯი') return 11;
+      if (bed === 'მცირე') return 12;
+      return 999;
+    }
+
     // Toast შეტყობინება
     function showToast(msg, error = false) {
       const t = document.getElementById('toast');
@@ -72,19 +84,18 @@
         list = list.filter(p =>
           (p.patient_name || '').toLowerCase().includes(search) ||
           (p.history_number || '').includes(search) ||
-          (p.bed || '').toLowerCase().includes(search)
+          (p.bed || '').toLowerCase().includes(search) ||
+          (p.doctor || '').toLowerCase().includes(search)
         );
       }
-      // დახარისხება
+
+      // სორტირება საწოლის მიხედვით (თანმიმდევრულად)
       list.sort((a, b) => {
-        let av = a[currentSort.column] ?? '';
-        let bv = b[currentSort.column] ?? '';
-        if (currentSort.column === 'timestamp') {
-          av = a.timestamp?.seconds || 0;
-          bv = b.timestamp?.seconds || 0;
-        }
-        return (av < bv ? -1 : 1) * (currentSort.dir === 'asc' ? 1 : -1);
+        const orderA = getBedOrder(a.bed);
+        const orderB = getBedOrder(b.bed);
+        return (orderA - orderB);
       });
+
       const tbody = document.getElementById('active-tbody');
       tbody.innerHTML = list.length === 0
         ? '<tr><td colspan="8" class="empty-state">პაციენტები არ არის</td></tr>'
@@ -105,9 +116,11 @@
           </tr>
         `).join('');
     }
-    // არქივის რენდერი
+    // არქივის რენდერი (აქაც საწოლით დალაგდება)
     function renderArchive() {
-      const list = patients.filter(p => p.archived);
+      let list = patients.filter(p => p.archived);
+      list.sort((a, b) => getBedOrder(a.bed) - getBedOrder(b.bed));
+
       const tbody = document.getElementById('archive-tbody');
       tbody.innerHTML = list.length === 0
         ? '<tr><td colspan="9" class="empty-state">არქივი ცარიელია</td></tr>'
@@ -128,7 +141,7 @@
           </tr>
         `).join('');
     }
-    // სტატისტიკის განახლება
+    // სტატისტიკა
     function updateStats() {
       const today = new Date().toDateString();
       const active = patients.filter(p => !p.archived).length;
@@ -150,7 +163,7 @@
           history_number: document.getElementById('history-number').value.trim() || null,
           icd10_code: document.getElementById('icd10').value.trim() || null,
           doctor: document.getElementById('doctor').value.trim() || null,
-          comment: document.getElementById('comment').value.trim() || null,
+          comment: document.getElementById('comment').value.trim() || null1,
           archived: false,
           timestamp: serverTimestamp()
         });
@@ -191,7 +204,7 @@
         showToast('შეცდომა: ' + err.message, true);
       }
     });
-    // არქივში გადატანა / აღდგენა / წაშლა
+    // მოქმედებები
     window.archivePatient = id => {
       if (confirm('არქივში გადატანა?')) {
         updateDoc(doc(db, currentCollection.path, id), { archived: true, archived_at: serverTimestamp() })
@@ -210,24 +223,19 @@
           .then(() => showToast('პაციენტი წაიშალა'));
       }
     };
-    // ყველას წაშლა
     window.clearAllData = async () => {
       if (!confirm('ყველა პაციენტი წაიშლება სამუდამოდ!') || !confirm('დარწმუნებული ხართ?')) return;
       const snap = await getDocs(currentCollection);
       await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
       showToast('დარბაზი გასუფთავდა');
     };
-    // სორტირება
+    // სორტირება საწოლით (ახლა ნაგულისხმევია)
     window.sortTable = col => {
-      if (currentSort.column === col) {
-        currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
-      } else {
-        currentSort.column = col;
-        currentSort.dir = 'asc';
-      }
+      // ახლა საწოლით სორტირება ყოველთვის რჩება
+      showToast('პაციენტები დალაგებულია საწოლის ნომრით (1-10, ლოჯი, მცირე)');
       renderActive();
     };
-    // ტაბების გადართვა
+    // ტაბები
     window.switchTab = tab => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -333,7 +341,7 @@
     }
     th {
       background: var(--primary); color: white; padding: 1.3rem 1rem; text-align: left;
-      font-weight: 600; cursor: pointer;
+      font-weight: 600; cursor: default; /* აღარ არის საჭირო კლიკი */
     }
     td { padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9; }
     tr:hover { background: #f8fafc; }
@@ -360,7 +368,7 @@
     .clear-all-btn:hover { background: #b91c1c; }
     .empty-state { text-align: center; padding: 5rem 1rem; color: #94a3b8; font-size: 1.3rem; }
 
-    /* გაუმჯობესებული მოდალი – ყველა ღილაკი ყოველთვის ხელმისაწვდომია */
+    /* მოდალი – ღილაკები ყოველთვის ხელმისაწვდომია */
     .modal {
       display: none;
       position: fixed;
@@ -402,12 +410,6 @@
       font-size: 2.2rem;
       color: #94a3b8;
       cursor: pointer;
-      padding: 0;
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
     .modal-body {
       padding: 1.5rem 2rem;
@@ -423,19 +425,10 @@
       justify-content: flex-end;
       flex-shrink: 0;
     }
-    .modal .form-grid { gap: 1.2rem; }
-    .modal .form-group label { font-size: 0.95rem; margin-bottom: 0.5rem; }
-    .modal .form-group input,
-    .modal .form-group select,
-    .modal .form-group textarea {
-      padding: 0.9rem;
-      font-size: 0.95rem;
-    }
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }
       .action-buttons { flex-direction: column; }
       .room-choice { min-width: 300px; padding: 2rem 3rem; font-size: 1.8rem; }
-      .modal-content { max-width: 95%; }
     }
   </style>
 </head>
@@ -457,14 +450,12 @@
         <p>სტაციონარული პაციენტების მართვა</p>
       </div>
 
-      <!-- ტაბები -->
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('active')">აქტიური პაციენტები</button>
         <button class="tab-btn" onclick="switchTab('archive')">არქივი</button>
         <button class="tab-btn" onclick="switchTab('statistics')">სტატისტიკა</button>
       </div>
 
-      <!-- აქტიური პაციენტები -->
       <div id="active-tab" class="tab-content active">
         <div class="card">
           <h2>ახალი პაციენტის დამატება</h2>
@@ -497,13 +488,13 @@
           <table>
             <thead>
               <tr>
-                <th onclick="sortTable('bed')">საწოლი</th>
-                <th onclick="sortTable('patient_name')">პაციენტი</th>
-                <th onclick="sortTable('history_number')">ისტორია</th>
-                <th onclick="sortTable('icd10_code')">ICD-10</th>
-                <th onclick="sortTable('doctor')">ექიმი</th>
+                <th>საწოლი</th>
+                <th>პაციენტი</th>
+                <th>ისტორია</th>
+                <th>ICD-10</th>
+                <th>ექიმი</th>
                 <th>კომენტარი</th>
-                <th onclick="sortTable('timestamp')">ჩარიცხვა</th>
+                <th>ჩარიცხვა</th>
                 <th>მოქმედება</th>
               </tr>
             </thead>
@@ -512,10 +503,9 @@
         </div>
       </div>
 
-      <!-- არქივი -->
       <div id="archive-tab" class="tab-content">
         <div class="card">
-          <h2>არქივი</h2>
+          <h2>არქივი (ასევე დალაგებულია საწოლით)</h2>
           <table>
             <thead>
               <tr>
@@ -528,12 +518,11 @@
         </div>
       </div>
 
-      <!-- სტატისტიკა -->
       <div id="statistics-tab" class="tab-content">
         <div class="card">
           <h2>დღიური სტატისტიკა</h2>
           <div class="stats-grid">
-            <div class="stat-card"><h3>აქტიური პაციენტები</h3><div class="number" id="stat-act ive">0</div></div>
+            <div class="stat-card"><h3>აქტიური პაციენტები</h3><div class="number" id="stat-active">0</div></div>
             <div class="stat-card"><h3>დღეს დამატებული</h3><div class="number" id="stat-today-added">0</div></div>
             <div class="stat-card"><h3>დღეს გაწერილი</h3><div class="number" id="stat-today-deleted">0</div></div>
             <div class="stat-card"><h3>სულ არქივში</h3><div class="number" id="stat-archived">0</div></div>
@@ -542,7 +531,7 @@
       </div>
     </div>
 
-    <!-- გაუმჯობესებული რედაქტირების მოდალი -->
+    <!-- რედაქტირების მოდალი -->
     <div id="edit-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
