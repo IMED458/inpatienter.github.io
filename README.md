@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ka">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +5,6 @@
   <title>საწოლების მართვის სისტემა</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Firebase 10+ (Module) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
     import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -22,10 +20,9 @@
     const db = getFirestore(app);
     let currentCollection = null;
     let patients = [];
-    let currentSort = { column: 'bed_order', dir: 'asc' }; // ახალი ნაგულისხმევი სორტირება საწოლით
     let editingId = null;
 
-    // საწოლების თანმიმდევრული სორტირების ფუნქცია
+    // საწოლების თანმიმდევრული სორტირება
     function getBedOrder(bed) {
       if (!bed) return 999;
       const num = parseInt(bed);
@@ -35,21 +32,20 @@
       return 999;
     }
 
-    // Toast შეტყობინება
     function showToast(msg, error = false) {
       const t = document.getElementById('toast');
       t.textContent = msg;
       t.className = 'toast active' + (error ? ' error' : '');
       setTimeout(() => t.classList.remove('active'), 4000);
     }
-    // დაცვა HTML-ისგან
+
     function escapeHtml(text) {
       if (!text) return '-';
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
-    // თარიღის ფორმატი
+
     function formatDate(ts) {
       if (!ts || !ts.toDate) return '-';
       return ts.toDate().toLocaleString('ka-GE', {
@@ -57,7 +53,7 @@
         hour: '2-digit', minute: '2-digit'
       });
     }
-    // დარბაზის გახსნა
+
     window.openRoom = function(room) {
       currentCollection = collection(db, room === 'observation' ? 'observation_room' : 'shock_room');
       document.getElementById('welcome-screen').style.display = 'none';
@@ -65,7 +61,7 @@
       document.querySelector('.header h1').textContent = room === 'observation' ? 'ობსერვაციის დარბაზი' : 'შოკის დარბაზი';
       loadPatients();
     };
-    // პაციენტების ჩატვირთვა
+
     function loadPatients() {
       if (!currentCollection) return;
       const q = query(currentCollection, orderBy("timestamp", "desc"));
@@ -76,7 +72,7 @@
         updateStats();
       });
     }
-    // აქტიური პაციენტების რენდერი
+
     function renderActive() {
       let list = patients.filter(p => !p.archived);
       const search = document.getElementById('search')?.value.toLowerCase() || '';
@@ -89,24 +85,19 @@
         );
       }
 
-      // სორტირება საწოლის მიხედვით (თანმიმდევრულად)
-      list.sort((a, b) => {
-        const orderA = getBedOrder(a.bed);
-        const orderB = getBedOrder(b.bed);
-        return (orderA - orderB);
-      });
+      list.sort((a, b) => getBedOrder(a.bed) - getBedOrder(b.bed));
 
       const tbody = document.getElementById('active-tbody');
       tbody.innerHTML = list.length === 0
         ? '<tr><td colspan="8" class="empty-state">პაციენტები არ არის</td></tr>'
         : list.map(p => `
           <tr>
-            <td><strong>${escapeHtml(p.bed)}</strong></td>
-            <td>${escapeHtml(p.patient_name)}</td>
-            <td>${escapeHtml(p.history_number)}</td>
-            <td>${escapeHtml(p.icd10_code)}</td>
-            <td>${escapeHtml(p.doctor)}</td>
-            <td>${escapeHtml(p.comment)}</td>
+            <td><strong style="color:#1d4ed8;">${escapeHtml(p.bed)}</strong></td>
+            <td><strong>${escapeHtml(p.patient_name || '—')}</strong></td>
+            <td>${escapeHtml(p.history_number || '—')}</td>
+            <td>${escapeHtml(p.icd10_code || '—')}</td>
+            <td>${escapeHtml(p.doctor || '—')}</td>
+            <td>${escapeHtml(p.comment || '—')}</td>
             <td>${formatDate(p.timestamp)}</td>
             <td class="action-buttons">
               <button class="btn btn-edit" onclick="openEditModal('${p.id}')">რედაქტირება</button>
@@ -116,7 +107,7 @@
           </tr>
         `).join('');
     }
-    // არქივის რენდერი (აქაც საწოლით დალაგდება)
+
     function renderArchive() {
       let list = patients.filter(p => p.archived);
       list.sort((a, b) => getBedOrder(a.bed) - getBedOrder(b.bed));
@@ -141,7 +132,7 @@
           </tr>
         `).join('');
     }
-    // სტატისტიკა
+
     function updateStats() {
       const today = new Date().toDateString();
       const active = patients.filter(p => !p.archived).length;
@@ -153,17 +144,17 @@
       document.getElementById('stat-today-deleted').textContent = dischargedToday;
       document.getElementById('stat-archived').textContent = archived;
     }
-    // პაციენტის დამატება
+
     document.getElementById('patient-form').addEventListener('submit', async e => {
       e.preventDefault();
       try {
         await addDoc(currentCollection, {
           bed: document.getElementById('bed').value,
-          patient_name: document.getElementById('patient-name').value.trim(),
+          patient_name: document.getElementById('patient-name').value.trim() || null,
           history_number: document.getElementById('history-number').value.trim() || null,
           icd10_code: document.getElementById('icd10').value.trim() || null,
           doctor: document.getElementById('doctor').value.trim() || null,
-          comment: document.getElementById('comment').value.trim() || null1,
+          comment: document.getElementById('comment').value.trim() || null,
           archived: false,
           timestamp: serverTimestamp()
         });
@@ -173,7 +164,7 @@
         showToast('შეცდომა: ' + err.message, true);
       }
     });
-    // რედაქტირების მოდალი
+
     window.openEditModal = id => {
       const p = patients.find(x => x.id === id);
       if (!p) return;
@@ -186,13 +177,15 @@
       document.getElementById('edit-comment').value = p.comment || '';
       document.getElementById('edit-modal').classList.add('active');
     };
+
     window.closeEditModal = () => document.getElementById('edit-modal').classList.remove('active');
+
     document.getElementById('edit-form').addEventListener('submit', async e => {
       e.preventDefault();
       try {
         await updateDoc(doc(db, currentCollection.path, editingId), {
           bed: document.getElementById('edit-bed').value,
-          patient_name: document.getElementById('edit-name').value.trim(),
+          patient_name: document.getElementById('edit-name').value.trim() || null,
           history_number: document.getElementById('edit-history').value.trim() || null,
           icd10_code: document.getElementById('edit-icd').value.trim() || null,
           doctor: document.getElementById('edit-doctor').value.trim() || null,
@@ -204,47 +197,45 @@
         showToast('შეცდომა: ' + err.message, true);
       }
     });
-    // მოქმედებები
+
     window.archivePatient = id => {
       if (confirm('არქივში გადატანა?')) {
         updateDoc(doc(db, currentCollection.path, id), { archived: true, archived_at: serverTimestamp() })
           .then(() => showToast('არქივში გადავიდა'));
       }
     };
+
     window.restorePatient = id => {
       if (confirm('აღდგენა აქტიურ პაციენტებში?')) {
         updateDoc(doc(db, currentCollection.path, id), { archived: false, archived_at: null })
           .then(() => showToast('პაციენტი აღდგენილია'));
       }
     };
+
     window.permanentlyDelete = id => {
       if (confirm('სამუდამოდ წაშლა? (შეუქცევადია!)') && confirm('დარწმუნებული ხართ?')) {
         deleteDoc(doc(db, currentCollection.path, id))
           .then(() => showToast('პაციენტი წაიშალა'));
       }
     };
+
     window.clearAllData = async () => {
       if (!confirm('ყველა პაციენტი წაიშლება სამუდამოდ!') || !confirm('დარწმუნებული ხართ?')) return;
       const snap = await getDocs(currentCollection);
       await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
       showToast('დარბაზი გასუფთავდა');
     };
-    // სორტირება საწოლით (ახლა ნაგულისხმევია)
-    window.sortTable = col => {
-      // ახლა საწოლით სორტირება ყოველთვის რჩება
-      showToast('პაციენტები დალაგებულია საწოლის ნომრით (1-10, ლოჯი, მცირე)');
-      renderActive();
-    };
-    // ტაბები
+
     window.switchTab = tab => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
       document.getElementById(tab + '-tab').classList.add('active');
     };
-    // ძებნა
+
     document.getElementById('search')?.addEventListener('input', renderActive);
   </script>
+
   <style>
     :root {
       --primary: #2563eb;
@@ -341,9 +332,16 @@
     }
     th {
       background: var(--primary); color: white; padding: 1.3rem 1rem; text-align: left;
-      font-weight: 600; cursor: default; /* აღარ არის საჭირო კლიკი */
+      font-weight: 600; cursor: default;
     }
-    td { padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9; }
+    td { padding: 1.2rem 1rem; }
+
+    /* მხოლოდ გამყოფი ხაზები მუქი ლურჯი აქტიურ ტაბში */
+    #active-tab td, #active-tab th {
+      border-bottom: 2px solid #1d4ed8 !important;
+    }
+    #active-tab tr:hover { background: #eff6ff; }
+
     tr:hover { background: #f8fafc; }
     .action-buttons { display: flex; gap: 0.8rem; flex-wrap: wrap; }
     .stats-grid {
@@ -351,7 +349,7 @@
     }
     .stat-card {
       background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
-      color: white; padding: 2rem; border-radius: 20px; text-align: center;
+      color: white; padding: 2rem; border-radius: 20px; text align: center;
       box-shadow: 0 15px 35px rgba(59,130,246,0.25);
     }
     .stat-card .number { font-size: 3.8rem; font-weight: 700; margin: 0.8rem 0; }
@@ -368,7 +366,6 @@
     .clear-all-btn:hover { background: #b91c1c; }
     .empty-state { text-align: center; padding: 5rem 1rem; color: #94a3b8; font-size: 1.3rem; }
 
-    /* მოდალი – ღილაკები ყოველთვის ხელმისაწვდომია */
     .modal {
       display: none;
       position: fixed;
@@ -433,7 +430,6 @@
   </style>
 </head>
 <body>
-  <!-- მისალმება -->
   <div id="welcome-screen" class="welcome">
     <h1>საწოლების მართვა</h1>
     <p>აირჩიეთ დარბაზი სამუშაოდ</p>
@@ -441,7 +437,6 @@
     <div class="room-choice" onclick="openRoom('shock')">შოკის დარბაზი</div>
   </div>
 
-  <!-- მთავარი აპლიკაცია -->
   <div id="app-container">
     <button class="back-to-rooms" onclick="location.reload()">დარბაზის შეცვლა</button>
     <div class="container">
@@ -458,11 +453,11 @@
 
       <div id="active-tab" class="tab-content active">
         <div class="card">
-          <h2>ახალი პაციენტის დამატება</h2>
+          <h2>ახალი პაციენტის დამატება </h2>
           <form id="patient-form">
             <div class="form-grid">
               <div class="form-group">
-                <label for="bed">საწოლი</label>
+                <label for="bed">საწოლი *</label>
                 <select id="bed" required>
                   <option value="">აირჩიეთ საწოლი</option>
                   <option value="1">1</option><option value="2">2</option><option value="3">3</option>
@@ -471,7 +466,7 @@
                   <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
                 </select>
               </div>
-              <div class="form-group"><label for="patient-name">პაციენტის სახელი და გვარი</label><input type="text" id="patient-name" required></div>
+              <div class="form-group"><label for="patient-name">პაციენტის სახელი და გვარი</label><input type="text" id="patient-name"></div>
               <div class="form-group"><label for="history-number">ისტორიის ნომერი</label><input type="text" id="history-number"></div>
               <div class="form-group"><label for="icd10">ICD-10 კოდი</label><input type="text" id="icd10"></div>
               <div class="form-group"><label for="doctor">ექიმი</label><input type="text" id="doctor"></div>
@@ -483,8 +478,8 @@
         </div>
 
         <div class="card">
-          <h2>აქტიური პაციენტები</h2>
-          <div class="search-filter"><input type="text" id="search" placeholder="ძებნა სახელით, ისტორიით ან საწოლით..."></div>
+          <h2>აქტიური პაციენტები (დალაგებულია საწოლით)</h2>
+          <div class="search-filter"><input type="text" id="search" placeholder="ძებნა..."></div>
           <table>
             <thead>
               <tr>
@@ -505,12 +500,12 @@
 
       <div id="archive-tab" class="tab-content">
         <div class="card">
-          <h2>არქივი (ასევე დალაგებულია საწოლით)</h2>
+          <h2>არქივი</h2>
           <table>
             <thead>
               <tr>
                 <th>საწოლი</th><th>პაციენტი</th><th>ისტორია</th><th>ICD-10</th><th>ექიმი</th>
-                <th>კომენტარი</th><th>ჩარიცხვა</th><th>არქივში გადატანა</th><th>მოქმედება</th>
+                <th>კომენტარი</th><th>ჩარიცხვა</th><th>არქივში</th><th>მოქმედება</th>
               </tr>
             </thead>
             <tbody id="archive-tbody"></tbody>
@@ -522,7 +517,7 @@
         <div class="card">
           <h2>დღიური სტატისტიკა</h2>
           <div class="stats-grid">
-            <div class="stat-card"><h3>აქტიური პაციენტები</h3><div class="number" id="stat-active">0</div></div>
+            <div class="stat-card"><h3>აქტიური</h3><div class="number" id="stat-active">0</div></div>
             <div class="stat-card"><h3>დღეს დამატებული</h3><div class="number" id="stat-today-added">0</div></div>
             <div class="stat-card"><h3>დღეს გაწერილი</h3><div class="number" id="stat-today-deleted">0</div></div>
             <div class="stat-card"><h3>სულ არქივში</h3><div class="number" id="stat-archived">0</div></div>
@@ -531,7 +526,6 @@
       </div>
     </div>
 
-    <!-- რედაქტირების მოდალი -->
     <div id="edit-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -550,7 +544,7 @@
                   <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option>
                 </select>
               </div>
-              <div class="form-group"><label>პაციენტი</label><input id="edit-name" required></div>
+              <div class="form-group"><label>პაციენტი</label><input id="edit-name"></div>
               <div class="form-group"><label>ისტორია</label><input id="edit-history"></div>
               <div class="form-group"><label>ICD-10</label><input id="edit-icd"></div>
               <div class="form-group"><label>ექიმი</label><input id="edit-doctor"></div>
