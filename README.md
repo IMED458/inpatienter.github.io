@@ -93,16 +93,16 @@
         : list.map(p => `
           <tr>
             <td><strong style="color:#1d4ed8;">${escapeHtml(p.bed)}</strong></td>
-            <td><strong>${escapeHtml(p.patient_name || '—')}</strong></td>
+            <td><strong style="font-size: 1.2em;">${escapeHtml(p.patient_name || '—')}</strong></td>
             <td>${escapeHtml(p.history_number || '—')}</td>
             <td>${escapeHtml(p.icd10_code || '—')}</td>
             <td>${escapeHtml(p.doctor || '—')}</td>
             <td>${escapeHtml(p.comment || '—')}</td>
             <td>${formatDate(p.timestamp)}</td>
             <td class="action-buttons">
-              <button class="btn btn-edit" onclick="openEditModal('${p.id}')">რედაქტირება</button>
-              <button class="btn btn-archive" onclick="archivePatient('${p.id}')">არქივი</button>
-              <button class="btn btn-delete" onclick="permanentlyDelete('${p.id}')">წაშლა</button>
+              <button class="btn btn-edit" onclick="openEditModal('${p.id}')">✏️</button>
+              <button class="btn btn-archive" onclick="archivePatient('${p.id}')">📦</button>
+              <button class="btn btn-delete" onclick="permanentlyDelete('${p.id}')">🗑️</button>
             </td>
           </tr>
         `).join('');
@@ -118,7 +118,7 @@
         : list.map(p => `
           <tr>
             <td>${escapeHtml(p.bed)}</td>
-            <td>${escapeHtml(p.patient_name)}</td>
+            <td><strong style="font-size: 1.2em;">${escapeHtml(p.patient_name)}</strong></td>
             <td>${escapeHtml(p.history_number)}</td>
             <td>${escapeHtml(p.icd10_code)}</td>
             <td>${escapeHtml(p.doctor)}</td>
@@ -126,8 +126,8 @@
             <td>${formatDate(p.timestamp)}</td>
             <td>${formatDate(p.archived_at)}</td>
             <td class="action-buttons">
-              <button class="btn btn-restore" onclick="restorePatient('${p.id}')">აღდგენა</button>
-              <button class="btn btn-delete" onclick="permanentlyDelete('${p.id}')">წაშლა</button>
+              <button class="btn btn-restore" onclick="restorePatient('${p.id}')">🔄</button>
+              <button class="btn btn-delete" onclick="permanentlyDelete('${p.id}')">🗑️</button>
             </td>
           </tr>
         `).join('');
@@ -313,8 +313,8 @@
       outline: none; border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
     }
     .btn {
-      padding: 0.9rem 1.8rem; border: none; border-radius: 12px; cursor: pointer;
-      font-weight: 600; font-size: 1rem; transition: all 0.3s;
+      padding: 0.5rem; border: none; border-radius: 12px; cursor: pointer;
+      font-weight: 600; font-size: 1rem; transition: all 0.3s; min-width: 40px;
     }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: #1d4ed8; transform: translateY(-2px); }
