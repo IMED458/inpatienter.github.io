@@ -5,6 +5,13 @@
   <title>საწოლების მართვის სისტემა</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+  <!-- FAVICON – inpatient.png უნდა იდოს ამ ფაილთან იმავე საქაღალდეში -->
+  <link rel="icon" type="image/png" href="inpatient.png">
+  <link rel="shortcut icon" type="image/png" href="inpatient.png">
+  <!-- სურვილის შემთხვევაში შეიძლება ესეც:
+  <link rel="apple-touch-icon" href="inpatient.png">
+  -->
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
     import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -286,7 +293,7 @@
     }
     .tab-btn {
       padding: 0.9rem 2rem; background: transparent; border: none; border-radius: 12px;
-      color: #475569; font-weight: 600; cursor: pointer; transition: all 0.3s;
+      color: #475569; font-weight: 600; cursor: pointer; transition: all 0.3ს;
     }
     .tab-btn:hover { background: #f1f5f9; }
     .tab-btn.active { background: var(--primary); color: white; }
