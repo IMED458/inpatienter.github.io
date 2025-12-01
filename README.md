@@ -8,7 +8,7 @@
   <!-- FAVICON – inpatient.png უნდა იდოს ამ ფაილთან იმავე საქაღალდეში -->
   <link rel="icon" type="image/png" href="inpatient.png">
   <link rel="shortcut icon" type="image/png" href="inpatient.png">
-  <!-- სურვილის შემთხვევაში შეიძლება ესეც:
+  <!-- სურვილის შემთხვევაში может ესეც:
   <link rel="apple-touch-icon" href="inpatient.png">
   -->
 
@@ -96,16 +96,15 @@
 
       const tbody = document.getElementById('active-tbody');
       tbody.innerHTML = list.length === 0
-        ? '<tr><td colspan="8" class="empty-state">პაციენტები არ არის</td></tr>'
+        ? '<tr><td colspan="7" class="empty-state">პაციენტები არ არის</td></tr>'
         : list.map(p => `
           <tr>
             <td><strong style="color:#1d4ed8;">${escapeHtml(p.bed)}</strong></td>
-            <td><strong style="font-size: 1.2em;">${escapeHtml(p.patient_name || '—')}</strong></td>
+            <td><strong style="font-size: 1.6em;">${escapeHtml(p.patient_name || '—')}</strong></td>
             <td>${escapeHtml(p.history_number || '—')}</td>
             <td>${escapeHtml(p.icd10_code || '—')}</td>
             <td>${escapeHtml(p.doctor || '—')}</td>
             <td>${escapeHtml(p.comment || '—')}</td>
-            <td>${formatDate(p.timestamp)}</td>
             <td class="action-buttons">
               <button class="btn btn-edit" onclick="openEditModal('${p.id}')">✏️</button>
               <button class="btn btn-archive" onclick="archivePatient('${p.id}')">📦</button>
@@ -125,7 +124,7 @@
         : list.map(p => `
           <tr>
             <td>${escapeHtml(p.bed)}</td>
-            <td><strong style="font-size: 1.2em;">${escapeHtml(p.patient_name)}</strong></td>
+            <td><strong style="font-size: 1.6em;">${escapeHtml(p.patient_name)}</strong></td>
             <td>${escapeHtml(p.history_number)}</td>
             <td>${escapeHtml(p.icd10_code)}</td>
             <td>${escapeHtml(p.doctor)}</td>
@@ -133,8 +132,8 @@
             <td>${formatDate(p.timestamp)}</td>
             <td>${formatDate(p.archived_at)}</td>
             <td class="action-buttons">
-              <button class="btn btn-restore" onclick="restorePatient('${p.id}')">🔄</button>
-              <button class="btn btn-delete" onclick="permanentlyDelete('${p.id}')">🗑️</button>
+              <button class="btn.btn-restore" onclick="restorePatient('${p.id}')">🔄</button>
+              <button class="btn btn-delete".onclick="permanentlyDelete('${p.id}')">🗑️</button>
             </td>
           </tr>
         `).join('');
@@ -222,7 +221,7 @@
     window.permanentlyDelete = id => {
       if (confirm('სამუდამოდ წაშლა? (შეუქცევადია!)') && confirm('დარწმუნებული ხართ?')) {
         deleteDoc(doc(db, currentCollection.path, id))
-          .then(() => showToast('პაციენტი წაიშალა'));
+          .then(() =>.showToast('პაციენტი წაიშალა'));
       }
     };
 
@@ -293,19 +292,19 @@
     }
     .tab-btn {
       padding: 0.9rem 2rem; background: transparent; border: none; border-radius: 12px;
-      color: #475569; font-weight: 600; cursor: pointer; transition: all 0.3ს;
+      color: #475569; font-weight: 600; cursor: pointer; transition: all 0.3s;
     }
     .tab-btn:hover { background: #f1f5f9; }
     .tab-btn.active { background: var(--primary); color: white; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .card {
-      background: white; border-radius: 20px; padding: 2rem; margin-bottom: 2rem;
+      background: white; border-radius: 20px; padding: 2rem;.margin-bottom: 2rem;
       box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     }
     .card h2 {
       font-size: 1.8rem; margin-bottom: 1.5rem; color: #1e293b;
-      padding-bottom: 0.8rem; border-bottom: 3px solid var(--primary-light); display: inline-block;
+      padding-bottom: 0.8rem; border-bottom: 3px solid.var(--primary-light); display: inline-block;
     }
     .form-grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -356,7 +355,7 @@
     }
     .stat-card {
       background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
-      color: white; padding: 2rem; border-radius: 20px; text align: center;
+      color: white; padding: 2rem; border-radius: 20px; text-align: center;
       box-shadow: 0 15px 35px rgba(59,130,246,0.25);
     }
     .stat-card .number { font-size: 3.8rem; font-weight: 700; margin: 0.8rem 0; }
@@ -480,8 +479,8 @@
             </div>
             <div class="form-group"><label for="comment">კომენტარი</label><textarea id="comment" rows="3"></textarea></div>
             <button type="submit" class="btn btn-primary">დამატება</button>
+            <button type="button" class="clear-all-btn" onclick="clearAllData()">ყველა პაციენტის წაშლა</button>
           </form>
-          <button type="button" class="clear-all-btn" onclick="clearAllData()">ყველა პაციენტის წაშლა</button>
         </div>
 
         <div class="card">
@@ -496,7 +495,6 @@
                 <th>ICD-10</th>
                 <th>ექიმი</th>
                 <th>კომენტარი</th>
-                <th>ჩარიცხვა</th>
                 <th>მოქმედება</th>
               </tr>
             </thead>
@@ -556,7 +554,7 @@
               <div class="form-group"><label>ICD-10</label><input id="edit-icd"></div>
               <div class="form-group"><label>ექიმი</label><input id="edit-doctor"></div>
             </div>
-            <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment" rows="3"></textarea></div>
+            <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment".rows="3"></textarea></div>
           </form>
         </div>
         <div class="modal-footer">
