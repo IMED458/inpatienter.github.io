@@ -360,7 +360,7 @@
     .back-to-rooms {
       position: fixed;
       top: 1.5rem;
-      left: 1.5rem;
+      right: 1.5rem;
       background: white;
       color: #2563eb;
       border: none;
