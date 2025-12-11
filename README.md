@@ -4,14 +4,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>საწოლების მართვის სისტემა</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
-
   <!-- FAVICON – inpatient.png უნდა იდოს ამ ფაილთან იმავე საქაღალდეში -->
   <link rel="icon" type="image/png" href="inpatient.png">
   <link rel="shortcut icon" type="image/png" href="inpatient.png">
   <!-- სურვილის შემთხვევაში:
   <link rel="apple-touch-icon" href="inpatient.png">
   -->
-
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
     import {
@@ -27,7 +25,6 @@
       orderBy,
       getDocs
     } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-
     const firebaseConfig = {
       apiKey: "AIzaSyCDze1tz15HdKZVSPOPW_-7t-9ag4AiZYs",
       authDomain: "clinic-inpatient.firebaseapp.com",
@@ -36,14 +33,11 @@
       messagingSenderId: "586729386322",
       appId: "1:586729386322:web:17a92324784c2c988a4a8b"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-
     let currentCollection = null;
     let patients = [];
     let editingId = null;
-
     // საწოლების თანმიმდევრული სორტირება
     function getBedOrder(bed) {
       if (!bed) return 999;
@@ -51,23 +45,21 @@
       if (!isNaN(num) && num >= 1 && num <= 10) return num;
       if (bed === 'ლოჯი') return 11;
       if (bed === 'მცირე') return 12;
+      if (bed === 'მოვა') return 13;
       return 999;
     }
-
     function showToast(msg, error = false) {
       const t = document.getElementById('toast');
       t.textContent = msg;
       t.className = 'toast active' + (error ? ' error' : '');
       setTimeout(() => t.classList.remove('active'), 4000);
     }
-
     function escapeHtml(text) {
       if (!text) return '-';
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
-
     function formatDate(ts) {
       if (!ts || !ts.toDate) return '-';
       return ts.toDate().toLocaleString('ka-GE', {
@@ -78,7 +70,6 @@
         minute: '2-digit'
       });
     }
-
     // დარბაზის არჩევა
     window.openRoom = function (room) {
       currentCollection = collection(
@@ -91,7 +82,6 @@
         room === 'observation' ? 'ობსერვაციის დარბაზი' : 'შოკის დარბაზი';
       loadPatients();
     };
-
     function loadPatients() {
       if (!currentCollection) return;
       const q = query(currentCollection, orderBy('timestamp', 'desc'));
@@ -102,7 +92,6 @@
         updateStats();
       });
     }
-
     // აქტიური პაციენტების რენდერი (ჩარიცხვა ამოღებულია + სახელის გაზრდა)
     function renderActive() {
       let list = patients.filter(p => !p.archived);
@@ -115,9 +104,7 @@
           (p.doctor || '').toLowerCase().includes(search)
         );
       }
-
       list.sort((a, b) => getBedOrder(a.bed) - getBedOrder(b.bed));
-
       const tbody = document.getElementById('active-tbody');
       tbody.innerHTML =
         list.length === 0
@@ -150,12 +137,10 @@
               )
               .join('');
     }
-
     // არქივის რენდერი (აქ მხოლოდ სახელის ზომა გავზარდე)
     function renderArchive() {
       let list = patients.filter(p => p.archived);
-      list.sort((a, b) => getBedOrder(a.bed) - getBedOrder(b.bed));
-
+      list.sort((a, b) => b.archived_at.toMillis() - a.archived_at.toMillis());
       const tbody = document.getElementById('archive-tbody');
       tbody.innerHTML =
         list.length === 0
@@ -187,7 +172,6 @@
               )
               .join('');
     }
-
     function updateStats() {
       const today = new Date().toDateString();
       const active = patients.filter(p => !p.archived).length;
@@ -207,7 +191,6 @@
       document.getElementById('stat-today-deleted').textContent = dischargedToday;
       document.getElementById('stat-archived').textContent = archived;
     }
-
     document
       .getElementById('patient-form')
       .addEventListener('submit', async e => {
@@ -231,7 +214,6 @@
           showToast('შეცდომა: ' + err.message, true);
         }
       });
-
     window.openEditModal = id => {
       const p = patients.find(x => x.id === id);
       if (!p) return;
@@ -244,10 +226,8 @@
       document.getElementById('edit-comment').value = p.comment || '';
       document.getElementById('edit-modal').classList.add('active');
     };
-
     window.closeEditModal = () =>
       document.getElementById('edit-modal').classList.remove('active');
-
     document
       .getElementById('edit-form')
       .addEventListener('submit', async e => {
@@ -273,7 +253,6 @@
           showToast('შეცდომა: ' + err.message, true);
         }
       });
-
     window.archivePatient = id => {
       if (confirm('არქივში გადატანა?')) {
         updateDoc(doc(db, currentCollection.path, id), {
@@ -282,7 +261,6 @@
         }).then(() => showToast('არქივში გადავიდა'));
       }
     };
-
     window.restorePatient = id => {
       if (confirm('აღდგენა აქტიურ პაციენტებში?')) {
         updateDoc(doc(db, currentCollection.path, id), {
@@ -291,7 +269,6 @@
         }).then(() => showToast('პაციენტი აღდგენილია'));
       }
     };
-
     window.permanentlyDelete = id => {
       if (
         confirm('სამუდამოდ წაშლა? (შეუქცევადია!)') &&
@@ -302,7 +279,6 @@
         );
       }
     };
-
     window.clearAllData = async () => {
       if (
         !confirm('ყველა პაციენტი წაიშლება სამუდამოდ!') ||
@@ -313,7 +289,6 @@
       await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
       showToast('დარბაზი გასუფთავდა');
     };
-
     window.switchTab = tab => {
       document
         .querySelectorAll('.tab-btn')
@@ -326,10 +301,8 @@
         .classList.add('active');
       document.getElementById(tab + '-tab').classList.add('active');
     };
-
     document.getElementById('search')?.addEventListener('input', renderActive);
   </script>
-
   <style>
     :root {
       --primary: #2563eb;
@@ -560,7 +533,6 @@
     td {
       padding: 1.2rem 1rem;
     }
-
     /* მხოლოდ გამყოფი ხაზები მუქი ლურჯი აქტიურ ტაბში */
     #active-tab td,
     #active-tab th {
@@ -569,7 +541,6 @@
     #active-tab tr:hover {
       background: #eff6ff;
     }
-
     tr:hover {
       background: #f8fafc;
     }
@@ -637,7 +608,6 @@
       color: #94a3b8;
       font-size: 1.3rem;
     }
-
     .modal {
       display: none;
       position: fixed;
@@ -718,7 +688,6 @@
     <div class="room-choice" onclick="openRoom('observation')">ობსერვაციის დარბაზი</div>
     <div class="room-choice" onclick="openRoom('shock')">შოკის დარბაზი</div>
   </div>
-
   <div id="app-container">
     <button class="back-to-rooms" onclick="location.reload()">დარბაზის შეცვლა</button>
     <div class="container">
@@ -726,13 +695,11 @@
         <h1>დარბაზი</h1>
         <p>სტაციონარული პაციენტების მართვა</p>
       </div>
-
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('active')">აქტიური პაციენტები</button>
         <button class="tab-btn" onclick="switchTab('archive')">არქივი</button>
         <button class="tab-btn" onclick="switchTab('statistics')">სტატისტიკა</button>
       </div>
-
       <div id="active-tab" class="tab-content active">
         <div class="card">
           <h2>ახალი პაციენტის დამატება</h2>
@@ -754,6 +721,7 @@
                   <option value="10">10</option>
                   <option value="ლოჯი">ლოჯი</option>
                   <option value="მცირე">მცირე</option>
+                  <option value="მოვა">მოვა</option>
                 </select>
               </div>
               <div class="form-group">
@@ -781,7 +749,6 @@
           </form>
           <button type="button" class="clear-all-btn" onclick="clearAllData()">ყველა პაციენტის წაშლა</button>
         </div>
-
         <div class="card">
           <h2>აქტიური პაციენტები (დალაგებულია საწოლით)</h2>
           <div class="search-filter">
@@ -803,7 +770,6 @@
           </table>
         </div>
       </div>
-
       <div id="archive-tab" class="tab-content">
         <div class="card">
           <h2>არქივი</h2>
@@ -825,7 +791,6 @@
           </table>
         </div>
       </div>
-
       <div id="statistics-tab" class="tab-content">
         <div class="card">
           <h2>დღიური სტატისტიკა</h2>
@@ -850,7 +815,6 @@
         </div>
       </div>
     </div>
-
     <div id="edit-modal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -875,6 +839,7 @@
                   <option value="10">10</option>
                   <option value="ლოჯი">ლოჯი</option>
                   <option value="მცირე">მცირე</option>
+                  <option value="მოვა">მოვა</option>
                 </select>
               </div>
               <div class="form-group">
@@ -915,7 +880,6 @@
         </div>
       </div>
     </div>
-
     <div id="toast" class="toast"></div>
   </div>
 </body>
