@@ -169,6 +169,14 @@
 
     function renderArchive() {
       let list = patients.filter(p => p.archived);
+      const archiveSearch = document.getElementById('archive-search')?.value.toLowerCase() || '';
+      if (archiveSearch) list = list.filter(p =>
+        (p.patient_name||'').toLowerCase().includes(archiveSearch) ||
+        (p.history_number||'').includes(archiveSearch) ||
+        (p.bed||'').toLowerCase().includes(archiveSearch) ||
+        (p.doctor||'').toLowerCase().includes(archiveSearch) ||
+        (p.personal_id||'').includes(archiveSearch)
+      );
       list.sort((a,b) => (b.archived_at?.toMillis() || 0) - (a.archived_at?.toMillis() || 0));
 
       const tbody = document.getElementById('archive-tbody');
@@ -346,6 +354,7 @@
     window.openForma100 = id => { const p = patients.find(x => x.id === id); if(!p) return; window.open(buildUrl('forma100.html',p),'_blank'); };
 
     document.getElementById('search')?.addEventListener('input', renderActive);
+    document.getElementById('archive-search')?.addEventListener('input', renderArchive);
   </script>
 
   <style>
@@ -509,6 +518,9 @@
       <div id="archive-tab" class="tab-content">
         <div class="card">
           <h2>არქივი</h2>
+          <div class="search-filter">
+            <input type="text" id="archive-search" placeholder="ძებნა არქივში: სახელი, ისტორია, პ/ნ...">
+          </div>
           <table>
             <thead>
               <tr>
