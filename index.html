@@ -317,7 +317,7 @@
     function syncQuickFormToRegistration() {
       const quickForm = document.getElementById('patient-form');
       const registrationForm = document.getElementById('registration-form');
-      const sharedFields = ['bed', 'patient_name', 'icd10_code', 'doctor', 'comment'];
+      const sharedFields = ['bed', 'patient_name', 'icd10_code', 'doctor', 'comment', 'status'];
       if (!sharedFields.some(name => getFormValue(quickForm, name).trim())) return;
       sharedFields.forEach(name => setFormValue(registrationForm, name, getFormValue(quickForm, name)));
     }
@@ -739,6 +739,16 @@
             <div class="form-group">
               <label for="comment">კომენტარი</label>
               <textarea id="comment" name="comment" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="quick-status">პაციენტის სტატუსი</label>
+              <select id="quick-status" name="status">
+                <option value="">აირჩიეთ სტატუსი</option>
+                <option value="სტაბილური">სტაბილური</option>
+                <option value="კრიტიკული">კრიტიკული</option>
+                <option value="გაურკვეველი">გაურკვეველი</option>
+                <option value="შიგააქ">შიგააქ</option>
+              </select>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary">დამატება</button>
