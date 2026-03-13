@@ -43,7 +43,6 @@
           { patientId:id, room:currentCollection.id, patientName:p.patient_name||'', manualDone:next, updatedAt:serverTimestamp() },
           { merge:true });
         showToast(next ? 'ჩექლისთი მოინიშნა' : 'მონიშვნა მოიხსნა');
-        closeActionPopup();
       } catch(err) { showToast('შეცდომა: '+err.message, true); }
     };
 
@@ -102,6 +101,79 @@
       return months[monthIndex] || '';
     }
 
+    function getFormValue(form, name) {
+      const field = form?.elements?.namedItem(name);
+      return field && 'value' in field ? String(field.value) : '';
+    }
+
+    function getTrimmedFormValue(form, name) {
+      const value = getFormValue(form, name).trim();
+      return value || null;
+    }
+
+    function normalizeTimeValue(value) {
+      const trimmed = String(value || '').trim();
+      if (!trimmed) return '';
+      if (/^\d{1,2}:\d{2}$/.test(trimmed)) return trimmed;
+      const digits = trimmed.replace(/\D/g, '');
+      if (digits.length === 4) return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
+      return trimmed;
+    }
+
+    function buildAdmitDateTime(dateValue, timeValue) {
+      const date = String(dateValue || '').trim();
+      const time = normalizeTimeValue(timeValue);
+      return date && time ? `${date}T${time}` : null;
+    }
+
+    function splitAdmitDateTime(value) {
+      if (!value) return ['', ''];
+      const [date = '', time = ''] = String(value).split('T');
+      return [date, time ? time.slice(0, 5) : ''];
+    }
+
+    function extractPatientPayload(form) {
+      return {
+        bed: getFormValue(form, 'bed') || null,
+        patient_name: getTrimmedFormValue(form, 'patient_name'),
+        personal_id: getTrimmedFormValue(form, 'personal_id'),
+        dob: getFormValue(form, 'dob') || null,
+        address: getTrimmedFormValue(form, 'address'),
+        admit_dt: buildAdmitDateTime(getFormValue(form, 'admit_date'), getFormValue(form, 'admit_time')),
+        history_number: getTrimmedFormValue(form, 'history_number'),
+        icd10_code: getTrimmedFormValue(form, 'icd10_code'),
+        doctor: getTrimmedFormValue(form, 'doctor'),
+        comment: getTrimmedFormValue(form, 'comment')
+      };
+    }
+
+    function setFormValue(form, name, value) {
+      const field = form?.elements?.namedItem(name);
+      if (field && 'value' in field) field.value = value || '';
+    }
+
+    function fillPatientForm(form, data = {}) {
+      if (!form) return;
+      const [admitDate, admitTime] = splitAdmitDateTime(data.admit_dt);
+      setFormValue(form, 'bed', data.bed);
+      setFormValue(form, 'patient_name', data.patient_name);
+      setFormValue(form, 'personal_id', data.personal_id);
+      setFormValue(form, 'dob', data.dob);
+      setFormValue(form, 'address', data.address);
+      setFormValue(form, 'admit_date', admitDate);
+      setFormValue(form, 'admit_time', admitTime);
+      setFormValue(form, 'history_number', data.history_number);
+      setFormValue(form, 'icd10_code', data.icd10_code);
+      setFormValue(form, 'doctor', data.doctor);
+      setFormValue(form, 'comment', data.comment);
+    }
+
+    function updateAgeBadge(inputId, badgeId) {
+      const input = document.getElementById(inputId);
+      const badge = document.getElementById(badgeId);
+      if (input && badge) badge.textContent = calcAge(input.value);
+    }
+
     window.openRoom = function(room) {
       currentCollection = collection(db, room === 'observation' ? 'observation_room' : 'shock_room');
       document.getElementById('welcome-screen').style.display = 'none';
@@ -136,31 +208,30 @@
         (p.history_number||'').includes(search) ||
         (p.bed||'').toLowerCase().includes(search) ||
         (p.doctor||'').toLowerCase().includes(search) ||
+        (p.icd10_code||'').toLowerCase().includes(search) ||
+        (p.comment||'').toLowerCase().includes(search) ||
         (p.personal_id||'').includes(search)
       );
       list.sort((a,b) => getBedOrder(a.bed) - getBedOrder(b.bed));
 
       const tbody = document.getElementById('active-tbody');
       tbody.innerHTML = list.length === 0
-        ? '<tr><td colspan="8" class="empty-state">პაციენტები არ არის</td></tr>'
+        ? '<tr><td colspan="6" class="empty-state">პაციენტები არ არის</td></tr>'
         : list.map(p => `
-          <tr class="patient-row" onclick="openActionPopup('${p.id}', event, false)">
+          <tr class="patient-row">
             <td><strong style="color:#1d4ed8;">${escapeHtml(p.bed)}</strong></td>
-            <td>
-              <strong style="font-size:1.05em;">${escapeHtml(p.patient_name||'—')}</strong>
-              ${p.dob ? `<div style="font-size:.76em;color:#64748b;margin-top:2px;">${escapeHtml(p.dob)} · ${calcAge(p.dob)}</div>` : ''}
-              ${p.personal_id ? `<div style="font-size:.76em;color:#64748b;">პ/ნ: ${escapeHtml(p.personal_id)}</div>` : ''}
-            </td>
-            <td>${escapeHtml(p.history_number||'—')}</td>
+            <td><strong style="font-size:1.05em;">${escapeHtml(p.patient_name||'—')}</strong></td>
             <td>${escapeHtml(p.icd10_code||'—')}</td>
             <td>${escapeHtml(p.doctor||'—')}</td>
-            <td style="font-size:.82em;">${p.admit_dt ? formatDtStr(p.admit_dt) : '—'}</td>
             <td>${escapeHtml(p.comment||'—')}</td>
-            <td class="action-buttons" onclick="event.stopPropagation()">
-              <button class="btn btn-edit" onclick="openEditModal('${p.id}')">✏️</button>
-              <button class="btn btn-archive" onclick="archivePatient('${p.id}')">📦</button>
-              <button class="btn btn-delete" onclick="permanentlyDelete('${p.id}')">🗑️</button>
-              <button class="btn btn-checkmark ${isChecklistMarked(p.id)?'is-done':''}" title="${isChecklistMarked(p.id)?'მონიშნულია - მოსახსნელად':'დასამონიშნად'}" onclick="toggleChecklistMark('${p.id}')">${isChecklistMarked(p.id)?'✅':'☑️'}</button>
+            <td class="action-buttons">
+              <button class="btn btn-edit" type="button" title="რედაქტირება" onclick="openEditModal('${p.id}')">✏️</button>
+              <button class="btn btn-short btn-checklist-link" type="button" title="ჩექლისთი" onclick="openChecklist('${p.id}')">ჩექ</button>
+              <button class="btn btn-short btn-emergency-link" type="button" title="ემერჯენსის გასინჯვა" onclick="openEmergency('${p.id}')">ემერ</button>
+              <button class="btn btn-short btn-forma-link" type="button" title="ფორმა № IV-100/ა" onclick="openForma100('${p.id}')">100</button>
+              <button class="btn btn-archive" type="button" title="არქივი" onclick="archivePatient('${p.id}')">📦</button>
+              <button class="btn btn-delete" type="button" title="წაშლა" onclick="permanentlyDelete('${p.id}')">🗑️</button>
+              <button class="btn btn-checkmark ${isChecklistMarked(p.id)?'is-done':''}" type="button" title="${isChecklistMarked(p.id)?'მონიშნულია - მოსახსნელად':'დასამონიშნად'}" onclick="toggleChecklistMark('${p.id}')">${isChecklistMarked(p.id)?'✅':'☑️'}</button>
             </td>
           </tr>`).join('');
     }
@@ -185,21 +256,23 @@
 
       const tbody = document.getElementById('archive-tbody');
       tbody.innerHTML = list.length === 0
-        ? '<tr><td colspan="10" class="empty-state">არქივი ცარიელია</td></tr>'
+        ? '<tr><td colspan="8" class="empty-state">არქივი ცარიელია</td></tr>'
         : list.map(p => `
-          <tr class="patient-row" onclick="openActionPopup('${p.id}', event, true)">
+          <tr class="patient-row">
             <td>${escapeHtml(p.bed)}</td>
-            <td><strong style="font-size:1em;">${escapeHtml(p.patient_name)}</strong></td>
-            <td>${escapeHtml(p.history_number)}</td>
-            <td>${escapeHtml(p.icd10_code)}</td>
-            <td>${escapeHtml(p.doctor)}</td>
-            <td>${escapeHtml(p.comment)}</td>
+            <td><strong style="font-size:1em;">${escapeHtml(p.patient_name || '—')}</strong></td>
+            <td>${escapeHtml(p.icd10_code || '—')}</td>
+            <td>${escapeHtml(p.doctor || '—')}</td>
+            <td>${escapeHtml(p.comment || '—')}</td>
             <td style="font-size:.82em;">${formatDate(p.timestamp)}</td>
             <td style="font-size:.82em;">${formatDate(p.archived_at)}</td>
-            <td class="action-buttons" onclick="event.stopPropagation()">
-              <button class="btn btn-restore" onclick="restorePatient('${p.id}')">🔄</button>
-              <button class="btn btn-delete" onclick="permanentlyDelete('${p.id}')">🗑️</button>
-              <button class="btn btn-checkmark ${isChecklistMarked(p.id)?'is-done':''}" title="${isChecklistMarked(p.id)?'მონიშნულია':'დასამონიშნად'}" onclick="toggleChecklistMark('${p.id}')">${isChecklistMarked(p.id)?'✅':'☑️'}</button>
+            <td class="action-buttons">
+              <button class="btn btn-restore" type="button" title="აღდგენა" onclick="restorePatient('${p.id}')">🔄</button>
+              <button class="btn btn-short btn-checklist-link" type="button" title="ჩექლისთი" onclick="openChecklist('${p.id}')">ჩექ</button>
+              <button class="btn btn-short btn-emergency-link" type="button" title="ემერჯენსის გასინჯვა" onclick="openEmergency('${p.id}')">ემერ</button>
+              <button class="btn btn-short btn-forma-link" type="button" title="ფორმა № IV-100/ა" onclick="openForma100('${p.id}')">100</button>
+              <button class="btn btn-delete" type="button" title="წაშლა" onclick="permanentlyDelete('${p.id}')">🗑️</button>
+              <button class="btn btn-checkmark ${isChecklistMarked(p.id)?'is-done':''}" type="button" title="${isChecklistMarked(p.id)?'მონიშნულია':'დასამონიშნად'}" onclick="toggleChecklistMark('${p.id}')">${isChecklistMarked(p.id)?'✅':'☑️'}</button>
             </td>
           </tr>`).join('');
     }
@@ -212,61 +285,64 @@
       document.getElementById('stat-archived').textContent = patients.filter(p => p.archived).length;
     }
 
-    window.onDobChange = () => {
-      document.getElementById('age-display').textContent = calcAge(document.getElementById('dob').value);
+    function syncQuickFormToRegistration() {
+      const quickForm = document.getElementById('patient-form');
+      const registrationForm = document.getElementById('registration-form');
+      const sharedFields = ['bed', 'patient_name', 'icd10_code', 'doctor', 'comment'];
+      if (!sharedFields.some(name => getFormValue(quickForm, name).trim())) return;
+      sharedFields.forEach(name => setFormValue(registrationForm, name, getFormValue(quickForm, name)));
+    }
+
+    window.openRegistrationModal = () => {
+      syncQuickFormToRegistration();
+      document.getElementById('registration-modal').classList.add('active');
+      updateAgeBadge('reg-dob', 'reg-age-display');
+    };
+
+    window.closeRegistrationModal = () => {
+      document.getElementById('registration-modal').classList.remove('active');
+    };
+
+    window.onRegistrationDobChange = () => {
+      updateAgeBadge('reg-dob', 'reg-age-display');
     };
 
     window.onEditDobChange = () => {
-      document.getElementById('edit-age-display').textContent = calcAge(document.getElementById('edit-dob').value);
+      updateAgeBadge('edit-dob', 'edit-age-display');
     };
 
     document.getElementById('patient-form').addEventListener('submit', async e => {
       e.preventDefault();
-      const date = document.getElementById('admit-date').value;
-      const time = document.getElementById('admit-time').value.trim();
-      const admit_dt = date && time ? `${date}T${time}` : null;
       try {
         await addDoc(currentCollection, {
-          bed: document.getElementById('bed').value,
-          patient_name: document.getElementById('patient-name').value.trim() || null,
-          personal_id: document.getElementById('personal-id').value.trim() || null,
-          dob: document.getElementById('dob').value || null,
-          address: document.getElementById('address').value.trim() || null,
-          admit_dt: admit_dt,
-          history_number: document.getElementById('history-number').value.trim() || null,
-          icd10_code: document.getElementById('icd10').value.trim() || null,
-          doctor: document.getElementById('doctor').value.trim() || null,
-          comment: document.getElementById('comment').value.trim() || null,
+          ...extractPatientPayload(e.target),
           archived: false, timestamp: serverTimestamp()
         });
         e.target.reset();
-        document.getElementById('age-display').textContent = '';
+        showToast('პაციენტი დამატებულია');
+      } catch(err) { showToast('შეცდომა: '+err.message, true); }
+    });
+
+    document.getElementById('registration-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      try {
+        await addDoc(currentCollection, {
+          ...extractPatientPayload(e.target),
+          archived: false, timestamp: serverTimestamp()
+        });
+        e.target.reset();
+        document.getElementById('patient-form').reset();
+        document.getElementById('reg-age-display').textContent = '';
+        closeRegistrationModal();
         showToast('პაციენტი დამატებულია');
       } catch(err) { showToast('შეცდომა: '+err.message, true); }
     });
 
     window.openEditModal = id => {
-      closeActionPopup();
       const p = patients.find(x => x.id === id); if (!p) return;
       editingId = id;
-      document.getElementById('edit-bed').value = p.bed || '';
-      document.getElementById('edit-name').value = p.patient_name || '';
-      document.getElementById('edit-personal').value = p.personal_id || '';
-      document.getElementById('edit-dob').value = p.dob || '';
-      document.getElementById('edit-age-display').textContent = calcAge(p.dob);
-      document.getElementById('edit-address').value = p.address || '';
-      let admitDate = '', admitTime = '';
-      if (p.admit_dt) {
-        const parts = p.admit_dt.split('T');
-        admitDate = parts[0] || '';
-        admitTime = parts[1] ? parts[1].slice(0,5) : '';
-      }
-      document.getElementById('edit-admit-date').value = admitDate;
-      document.getElementById('edit-admit-time').value = admitTime;
-      document.getElementById('edit-history').value = p.history_number || '';
-      document.getElementById('edit-icd').value = p.icd10_code || '';
-      document.getElementById('edit-doctor').value = p.doctor || '';
-      document.getElementById('edit-comment').value = p.comment || '';
+      fillPatientForm(document.getElementById('edit-form'), p);
+      updateAgeBadge('edit-dob', 'edit-age-display');
       document.getElementById('edit-modal').classList.add('active');
     };
 
@@ -274,42 +350,25 @@
 
     document.getElementById('edit-form').addEventListener('submit', async e => {
       e.preventDefault();
-      const date = document.getElementById('edit-admit-date').value;
-      const time = document.getElementById('edit-admit-time').value.trim();
-      const admit_dt = date && time ? `${date}T${time}` : null;
       try {
-        await updateDoc(doc(db, currentCollection.path, editingId), {
-          bed: document.getElementById('edit-bed').value,
-          patient_name: document.getElementById('edit-name').value.trim() || null,
-          personal_id: document.getElementById('edit-personal').value.trim() || null,
-          dob: document.getElementById('edit-dob').value || null,
-          address: document.getElementById('edit-address').value.trim() || null,
-          admit_dt: admit_dt,
-          history_number: document.getElementById('edit-history').value.trim() || null,
-          icd10_code: document.getElementById('edit-icd').value.trim() || null,
-          doctor: document.getElementById('edit-doctor').value.trim() || null,
-          comment: document.getElementById('edit-comment').value.trim() || null
-        });
+        await updateDoc(doc(db, currentCollection.path, editingId), extractPatientPayload(e.target));
         closeEditModal(); showToast('ცვლილებები შენახულია');
       } catch(err) { showToast('შეცდომა: '+err.message, true); }
     });
 
     window.archivePatient = id => {
-      closeActionPopup();
       if (confirm('არქივში გადატანა?'))
         updateDoc(doc(db, currentCollection.path, id), {archived: true, archived_at: serverTimestamp()})
           .then(() => showToast('არქივში გადავიდა'));
     };
 
     window.restorePatient = id => {
-      closeActionPopup();
       if (confirm('აღდგენა?'))
         updateDoc(doc(db, currentCollection.path, id), {archived: false, archived_at: null})
           .then(() => showToast('პაციენტი აღდგენილია'));
     };
 
     window.permanentlyDelete = id => {
-      closeActionPopup();
       if (confirm('სამუდამოდ წაშლა?') && confirm('დარწმუნებული ხართ?'))
         deleteDoc(doc(db, currentCollection.path, id))
           .then(() => showToast('წაიშალა'));
@@ -343,69 +402,21 @@
     }
 
     window.openChecklist = id => {
-      closeActionPopup();
       const p = patients.find(x => x.id === id); if (!p) return;
       const payload = {pid: p.id, room: currentCollection?.id||'', patient_name: p.patient_name||'', bed: p.bed||'', history_number: p.history_number||'', admit: p.admit_dt || ''};
       localStorage.setItem(`inpatient_checklist_patient_${p.id}`, JSON.stringify(payload));
       window.open(`checklist.html?pid=${encodeURIComponent(p.id)}&room=${encodeURIComponent(payload.room)}&name=${encodeURIComponent(payload.patient_name)}&admit=${encodeURIComponent(payload.admit)}`, '_blank');
     };
 
-    window.openEmergency = id => { closeActionPopup(); const p = patients.find(x => x.id === id); if(!p) return; window.open(buildUrl('emergency.html',p),'_blank'); };
-    window.openForma100 = id => { closeActionPopup(); const p = patients.find(x => x.id === id); if(!p) return; window.open(buildUrl('forma100.html',p),'_blank'); };
+    window.openEmergency = id => { const p = patients.find(x => x.id === id); if(!p) return; window.open(buildUrl('emergency.html',p),'_blank'); };
+    window.openForma100 = id => { const p = patients.find(x => x.id === id); if(!p) return; window.open(buildUrl('forma100.html',p),'_blank'); };
 
-    // ── ACTION POPUP ──
-    let currentPopupId = null;
+    document.getElementById('registration-modal').addEventListener('click', e => {
+      if (e.target.id === 'registration-modal') closeRegistrationModal();
+    });
 
-    window.openActionPopup = (id, event, isArchived) => {
-      event.stopPropagation();
-      if (currentPopupId === id) { closeActionPopup(); return; }
-      currentPopupId = id;
-
-      const p = patients.find(x => x.id === id); if (!p) return;
-      const marked = isChecklistMarked(id);
-
-      document.getElementById('popup-patient-name').textContent = p.patient_name || '—';
-
-      document.getElementById('popup-actions').innerHTML = `
-        <button class="popup-btn popup-checklist" onclick="openChecklist('${id}')">📋 ჩექლისთი</button>
-        <button class="popup-btn popup-emergency" onclick="openEmergency('${id}')">🚨 ემერჯენსის გასინჯვა</button>
-        <button class="popup-btn popup-forma" onclick="openForma100('${id}')">📄 ფორმა № IV-100/ა</button>
-        <div class="popup-divider"></div>
-        <button class="popup-btn popup-mark ${marked ? 'popup-marked' : ''}" onclick="toggleChecklistMark('${id}')">
-          ${marked ? '✅ მონიშვნის მოხსნა' : '☑️ ჩექლისთის მონიშვნა'}
-        </button>
-      `;
-
-      const popup = document.getElementById('action-popup');
-      popup.style.visibility = 'hidden';
-      popup.style.display = 'block';
-
-      const pw = popup.offsetWidth;
-      const ph = popup.offsetHeight;
-      const x = event.clientX, y = event.clientY;
-      const winW = window.innerWidth, winH = window.innerHeight;
-
-      let left = x + 12;
-      let top = y + 12;
-      if (left + pw > winW - 8) left = x - pw - 12;
-      if (top + ph > winH - 8) top = winH - ph - 8;
-
-      popup.style.left = left + 'px';
-      popup.style.top = top + 'px';
-      popup.style.visibility = '';
-      popup.classList.add('visible');
-    };
-
-    window.closeActionPopup = () => {
-      currentPopupId = null;
-      const popup = document.getElementById('action-popup');
-      popup.classList.remove('visible');
-      setTimeout(() => { if (!popup.classList.contains('visible')) popup.style.display = 'none'; }, 180);
-    };
-
-    document.addEventListener('click', e => {
-      const popup = document.getElementById('action-popup');
-      if (popup && !popup.contains(e.target)) closeActionPopup();
+    document.getElementById('edit-modal').addEventListener('click', e => {
+      if (e.target.id === 'edit-modal') closeEditModal();
     });
 
     document.getElementById('search')?.addEventListener('input', renderActive);
@@ -696,6 +707,9 @@
     /* CARD */
     .card{background:white;border-radius:14px;padding:1.2rem 1.5rem;margin-bottom:1.2rem;box-shadow:0 2px 8px rgba(0,0,0,.07);}
     .card h2{font-size:1rem;color:#1e293b;margin-bottom:.8rem;padding-bottom:.4rem;border-bottom:2px solid var(--gray-200);}
+    .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;}
+    .card-head h2{margin-bottom:.35rem;}
+    .card-subtitle{font-size:.82rem;color:#64748b;max-width:620px;}
 
     /* FORM */
     .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;margin-bottom:.8rem;}
@@ -704,21 +718,27 @@
     .form-group input,.form-group select,.form-group textarea{border:1.5px solid var(--gray-200);border-radius:8px;padding:.5rem .75rem;font-size:.88rem;font-family:inherit;outline:none;transition:border .2s;background:#fafbfc;}
     .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary);background:white;}
     .age-badge{font-size:.78rem;color:#1d4ed8;font-weight:700;min-height:1.1em;}
+    .form-actions{display:flex;gap:.65rem;flex-wrap:wrap;align-items:center;margin-top:.65rem;}
 
     /* BUTTONS */
     .btn{border:none;padding:.45rem .8rem;border-radius:7px;cursor:pointer;font-size:.82rem;font-weight:500;transition:all .2s;}
     .btn-primary{background:var(--primary);color:white;}.btn-primary:hover{background:#1d4ed8;}
+    .btn-secondary{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
     .btn-edit{background:#fef3c7;color:#92400e;}
     .btn-archive{background:#dcfce7;color:#166534;}
     .btn-delete{background:#fee2e2;color:#991b1b;}
     .btn-restore{background:#f0fdf4;color:#15803d;}
     .btn-checkmark{background:#f1f5f9;color:#475569;}
     .btn-checkmark.is-done{background:#d1fae5;color:#065f46;}
-    .action-buttons{display:flex;gap:.25rem;flex-wrap:wrap;align-items:center;}
+    .btn-short{padding:.45rem .62rem;font-size:.75rem;font-weight:700;letter-spacing:.02em;}
+    .btn-checklist-link{background:#e0f2fe;color:#0369a1;}
+    .btn-emergency-link{background:#fee2e2;color:#b91c1c;}
+    .btn-forma-link{background:#ede9fe;color:#6d28d9;}
+    .action-buttons{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;}
 
     /* TABLE */
-    .patient-row{cursor:pointer;transition:background .12s;}
-    .patient-row:hover td{background:#f0f6ff;}
+    .patient-row{transition:background .12s;}
+    .patient-row:hover td{background:#f8fbff;}
     table{width:100%;border-collapse:collapse;font-size:.85rem;}
     th{background:#f8fafc;padding:.5rem .7rem;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid var(--gray-200);font-size:.8rem;}
     td{padding:.5rem .7rem;border-bottom:1px solid var(--gray-200);vertical-align:middle;}
@@ -738,6 +758,7 @@
     .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;}
     .modal.active{display:flex;}
     .modal-content{background:white;border-radius:16px;width:90%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+    .modal-content.modal-wide{max-width:920px;}
     .modal-header{padding:1rem 1.5rem;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;}
     .modal-header h2{font-size:1rem;color:#1e293b;}
     .modal-close{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;}
@@ -747,95 +768,7 @@
     .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e293b;color:white;padding:.8rem 1.5rem;border-radius:10px;font-size:.9rem;opacity:0;transition:all .3s;pointer-events:none;z-index:9999;}
     .toast.active{opacity:1;transform:translateX(-50%) translateY(0);}.toast.error{background:#dc2626;}
 
-    /* ── ACTION POPUP ── */
-    #action-popup {
-      display: none;
-      position: fixed;
-      z-index: 2000;
-      background: white;
-      border-radius: 13px;
-      box-shadow: 0 10px 40px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.08);
-      border: 1.5px solid #e2e8f0;
-      min-width: 230px;
-      overflow: hidden;
-      opacity: 0;
-      transform: scale(0.95) translateY(-4px);
-      transition: opacity .17s ease, transform .17s ease;
-      pointer-events: none;
-    }
-    #action-popup.visible {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-      pointer-events: all;
-    }
-    .popup-header {
-      padding: .65rem 1rem .55rem;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .popup-header-label {
-      font-size: .68rem;
-      font-weight: 700;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-    #popup-patient-name {
-      font-size: .84rem;
-      font-weight: 600;
-      color: #1e293b;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 170px;
-    }
-    .popup-close-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: #94a3b8;
-      font-size: .95rem;
-      line-height: 1;
-      padding: 3px 5px;
-      border-radius: 5px;
-      flex-shrink: 0;
-      transition: background .15s;
-    }
-    .popup-close-btn:hover { background: #f1f5f9; color: #475569; }
-    #popup-actions {
-      display: flex;
-      flex-direction: column;
-      padding: .45rem .45rem;
-      gap: 2px;
-    }
-    .popup-btn {
-      background: none;
-      border: none;
-      padding: .58rem .9rem;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: .85rem;
-      font-family: 'Roboto', sans-serif;
-      font-weight: 500;
-      text-align: left;
-      color: #1e293b;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      transition: background .14s, color .14s;
-    }
-    .popup-btn:hover { background: #eff6ff; color: #1d4ed8; }
-    .popup-btn.popup-emergency:hover { background: #fef2f2; color: #dc2626; }
-    .popup-btn.popup-forma:hover { background: #f5f3ff; color: #6d28d9; }
-    .popup-btn.popup-marked { color: #059669; }
-    .popup-btn.popup-marked:hover { background: #f0fdf4; color: #047857; }
-    .popup-divider { height: 1px; background: #e2e8f0; margin: .3rem .45rem; }
-
-    @media(max-width:768px){.form-grid{grid-template-columns:1fr;}.action-buttons{flex-direction:column;}.room-choice{min-width:300px;padding:2rem 3rem;font-size:1.8rem;}}
+    @media(max-width:768px){.form-grid{grid-template-columns:1fr;}.room-choice{min-width:300px;padding:2rem 3rem;font-size:1.8rem;}}
   </style>
 </head>
 <body>
@@ -916,12 +849,18 @@
 
       <div id="active-tab" class="tab-content active">
         <div class="card">
-          <h2>ახალი პაციენტის დამატება</h2>
+          <div class="card-head">
+            <div>
+              <h2>სწრაფი პაციენტის დამატება</h2>
+              <div class="card-subtitle">მთავარ ეკრანზე ჩანს მხოლოდ აუცილებელი ველები. პირადი ნომერი, მისამართი, დაბადების თარიღი და სხვა დეტალები შეავსეთ რეგისტრატურიდან.</div>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="openRegistrationModal()">რეგისტრატურა</button>
+          </div>
           <form id="patient-form">
             <div class="form-grid">
               <div class="form-group">
                 <label for="bed">საწოლი *</label>
-                <select id="bed" required>
+                <select id="bed" name="bed" required>
                   <option value="">აირჩიეთ</option>
                   <option>1</option><option>2</option><option>3</option><option>4</option>
                   <option>5</option><option>6</option><option>7</option><option>8</option>
@@ -933,61 +872,39 @@
               </div>
               <div class="form-group">
                 <label for="patient-name">სახელი და გვარი</label>
-                <input type="text" id="patient-name">
-              </div>
-              <div class="form-group">
-                <label for="personal-id">პირადი ნომერი</label>
-                <input type="text" id="personal-id" maxlength="11" placeholder="11 ციფრი">
-              </div>
-              <div class="form-group">
-                <label for="dob">დაბადების თარიღი</label>
-                <input type="date" id="dob" onchange="onDobChange()">
-                <div class="age-badge" id="age-display"></div>
-              </div>
-              <div class="form-group">
-                <label for="address">მისამართი</label>
-                <input type="text" id="address">
-              </div>
-              <div class="form-group">
-                <label>შემოსვლის თარიღი</label>
-                <input type="date" id="admit-date">
-              </div>
-              <div class="form-group">
-                <label>შემოსვლის დრო</label>
-                <input type="text" id="admit-time" placeholder="მაგ: 14:30 ან 1430">
-              </div>
-              <div class="form-group">
-                <label for="history-number">ისტორიის ნომერი</label>
-                <input type="text" id="history-number">
+                <input type="text" id="patient-name" name="patient_name">
               </div>
               <div class="form-group">
                 <label for="icd10">ICD-10 კოდი</label>
-                <input type="text" id="icd10">
+                <input type="text" id="icd10" name="icd10_code">
               </div>
               <div class="form-group">
                 <label for="doctor">ექიმი</label>
-                <input type="text" id="doctor">
+                <input type="text" id="doctor" name="doctor">
               </div>
             </div>
             <div class="form-group">
               <label for="comment">კომენტარი</label>
-              <textarea id="comment" rows="2"></textarea>
+              <textarea id="comment" name="comment" rows="2"></textarea>
             </div>
-            <button type="submit" class="btn btn-primary" style="margin-top:.5rem">დამატება</button>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">დამატება</button>
+              <button type="button" class="btn btn-secondary" onclick="openRegistrationModal()">სრული რეგისტრაცია</button>
+            </div>
           </form>
           <button type="button" class="clear-all-btn" onclick="clearAllData()">ყველა პაციენტის წაშლა</button>
         </div>
 
         <div class="card">
-          <h2>აქტიური პაციენტები — მწკრივზე დაჭერით გამოვა დამატებითი ქმედებები</h2>
+          <h2>აქტიური პაციენტები</h2>
           <div class="search-filter">
-            <input type="text" id="search" placeholder="ძებნა სახელით, ისტ. ნომრით, პ/ნ...">
+            <input type="text" id="search" placeholder="ძებნა სახელით, ICD-10-ით, ექიმით, კომენტარით...">
           </div>
           <table>
             <thead>
               <tr>
-                <th>საწოლი</th><th>პაციენტი</th><th>ისტორია</th><th>ICD-10</th>
-                <th>ექიმი</th><th>შემოსვლა</th><th>კომენტარი</th><th>მოქმედება</th>
+                <th>საწოლი</th><th>პაციენტი</th><th>ICD-10</th>
+                <th>ექიმი</th><th>კომენტარი</th><th>მოქმედება</th>
               </tr>
             </thead>
             <tbody id="active-tbody"></tbody>
@@ -997,14 +914,14 @@
 
       <div id="archive-tab" class="tab-content">
         <div class="card">
-          <h2>არქივი — მწკრივზე დაჭერით გამოვა დამატებითი ქმედებები</h2>
+          <h2>არქივი</h2>
           <div class="search-filter">
             <input type="text" id="archive-search" placeholder="არქივში ძებნა: სახელი, ისტ. ნომერი, ექიმი, თარიღი...">
           </div>
           <table>
             <thead>
               <tr>
-                <th>საწოლი</th><th>პაციენტი</th><th>ისტორია</th><th>ICD-10</th>
+                <th>საწოლი</th><th>პაციენტი</th><th>ICD-10</th>
                 <th>ექიმი</th><th>კომენტარი</th><th>ჩარიცხვა</th><th>არქივში</th><th>მოქმედება</th>
               </tr>
             </thead>
@@ -1026,16 +943,77 @@
       </div>
     </div>
 
-    <!-- ACTION POPUP -->
-    <div id="action-popup">
-      <div class="popup-header">
-        <div>
-          <div class="popup-header-label">პაციენტი</div>
-          <div id="popup-patient-name"></div>
+    <!-- REGISTRATION MODAL -->
+    <div id="registration-modal" class="modal">
+      <div class="modal-content modal-wide">
+        <div class="modal-header">
+          <h2>რეგისტრატურა</h2>
+          <button class="modal-close" type="button" onclick="closeRegistrationModal()">×</button>
         </div>
-        <button class="popup-close-btn" onclick="closeActionPopup()">✕</button>
+        <div class="modal-body">
+          <form id="registration-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="reg-bed">საწოლი *</label>
+                <select id="reg-bed" name="bed" required>
+                  <option value="">აირჩიეთ</option>
+                  <option>1</option><option>2</option><option>3</option><option>4</option>
+                  <option>5</option><option>6</option><option>7</option><option>8</option>
+                  <option>9</option><option>10</option>
+                  <option value="ლოჯი">ლოჯი</option>
+                  <option value="მცირე">მცირე</option>
+                  <option value="მოვა">მოვა</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reg-patient-name">სახელი და გვარი</label>
+                <input type="text" id="reg-patient-name" name="patient_name">
+              </div>
+              <div class="form-group">
+                <label for="reg-personal-id">პირადი ნომერი</label>
+                <input type="text" id="reg-personal-id" name="personal_id" maxlength="11" placeholder="11 ციფრი">
+              </div>
+              <div class="form-group">
+                <label for="reg-dob">დაბადების თარიღი</label>
+                <input type="date" id="reg-dob" name="dob" onchange="onRegistrationDobChange()">
+                <div class="age-badge" id="reg-age-display"></div>
+              </div>
+              <div class="form-group">
+                <label for="reg-address">მისამართი</label>
+                <input type="text" id="reg-address" name="address">
+              </div>
+              <div class="form-group">
+                <label for="reg-admit-date">შემოსვლის თარიღი</label>
+                <input type="date" id="reg-admit-date" name="admit_date">
+              </div>
+              <div class="form-group">
+                <label for="reg-admit-time">შემოსვლის დრო</label>
+                <input type="text" id="reg-admit-time" name="admit_time" placeholder="მაგ: 14:30 ან 1430">
+              </div>
+              <div class="form-group">
+                <label for="reg-history-number">ისტორიის ნომერი</label>
+                <input type="text" id="reg-history-number" name="history_number">
+              </div>
+              <div class="form-group">
+                <label for="reg-icd10">ICD-10 კოდი</label>
+                <input type="text" id="reg-icd10" name="icd10_code">
+              </div>
+              <div class="form-group">
+                <label for="reg-doctor">ექიმი</label>
+                <input type="text" id="reg-doctor" name="doctor">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="reg-comment">კომენტარი</label>
+              <textarea id="reg-comment" name="comment" rows="2"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn" style="background:#94a3b8;color:white;" onclick="closeRegistrationModal()">გაუქმება</button>
+          <button type="submit" form="registration-form" class="btn btn-primary">დამატება</button>
+        </div>
       </div>
-      <div id="popup-actions"></div>
     </div>
 
     <!-- EDIT MODAL -->
@@ -1049,28 +1027,28 @@
           <form id="edit-form">
             <div class="form-grid">
               <div class="form-group"><label>საწოლი</label>
-                <select id="edit-bed">
+                <select id="edit-bed" name="bed">
                   <option>1</option><option>2</option><option>3</option><option>4</option>
                   <option>5</option><option>6</option><option>7</option><option>8</option>
                   <option>9</option><option>10</option>
                   <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option><option value="მოვა">მოვა</option>
                 </select>
               </div>
-              <div class="form-group"><label>სახელი და გვარი</label><input id="edit-name"></div>
-              <div class="form-group"><label>პირადი ნომერი</label><input id="edit-personal" maxlength="11"></div>
+              <div class="form-group"><label>სახელი და გვარი</label><input id="edit-name" name="patient_name"></div>
+              <div class="form-group"><label>პირადი ნომერი</label><input id="edit-personal" name="personal_id" maxlength="11"></div>
               <div class="form-group">
                 <label>დაბადების თარიღი</label>
-                <input type="date" id="edit-dob" onchange="onEditDobChange()">
+                <input type="date" id="edit-dob" name="dob" onchange="onEditDobChange()">
                 <div class="age-badge" id="edit-age-display"></div>
               </div>
-              <div class="form-group"><label>მისამართი</label><input id="edit-address"></div>
-              <div class="form-group"><label>შემოსვლის თარიღი</label><input type="date" id="edit-admit-date"></div>
-              <div class="form-group"><label>შემოსვლის დრო</label><input type="text" id="edit-admit-time" placeholder="მაგ: 14:30 ან 1430"></div>
-              <div class="form-group"><label>ისტორია</label><input id="edit-history"></div>
-              <div class="form-group"><label>ICD-10</label><input id="edit-icd"></div>
-              <div class="form-group"><label>ექიმი</label><input id="edit-doctor"></div>
+              <div class="form-group"><label>მისამართი</label><input id="edit-address" name="address"></div>
+              <div class="form-group"><label>შემოსვლის თარიღი</label><input type="date" id="edit-admit-date" name="admit_date"></div>
+              <div class="form-group"><label>შემოსვლის დრო</label><input type="text" id="edit-admit-time" name="admit_time" placeholder="მაგ: 14:30 ან 1430"></div>
+              <div class="form-group"><label>ისტორია</label><input id="edit-history" name="history_number"></div>
+              <div class="form-group"><label>ICD-10</label><input id="edit-icd" name="icd10_code"></div>
+              <div class="form-group"><label>ექიმი</label><input id="edit-doctor" name="doctor"></div>
             </div>
-            <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment" rows="2"></textarea></div>
+            <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment" name="comment" rows="2"></textarea></div>
           </form>
         </div>
         <div class="modal-footer">
