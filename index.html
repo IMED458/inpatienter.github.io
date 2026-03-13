@@ -404,8 +404,17 @@
 
     window.openRegistrationModal = () => {
       syncQuickFormToRegistration();
+      closeQuickAddModal();
       document.getElementById('registration-modal').classList.add('active');
       updateAgeBadge('reg-dob', 'reg-age-display');
+    };
+
+    window.openQuickAddModal = () => {
+      document.getElementById('quick-add-modal').classList.add('active');
+    };
+
+    window.closeQuickAddModal = () => {
+      document.getElementById('quick-add-modal').classList.remove('active');
     };
 
     window.closeRegistrationModal = () => {
@@ -428,6 +437,7 @@
           archived: false, timestamp: serverTimestamp()
         });
         e.target.reset();
+        closeQuickAddModal();
         showToast('პაციენტი დამატებულია');
       } catch(err) { showToast('შეცდომა: '+err.message, true); }
     });
@@ -524,6 +534,10 @@
       if (e.target.id === 'registration-modal') closeRegistrationModal();
     });
 
+    document.getElementById('quick-add-modal').addEventListener('click', e => {
+      if (e.target.id === 'quick-add-modal') closeQuickAddModal();
+    });
+
     document.getElementById('edit-modal').addEventListener('click', e => {
       if (e.target.id === 'edit-modal') closeEditModal();
     });
@@ -589,6 +603,8 @@
     .card h2{font-size:1.12rem;color:#1f2a3d;margin-bottom:10px;}
     .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:8px;}
     .card-subtitle{font-size:.92rem;color:#6b7b93;max-width:720px;line-height:1.5;}
+    .action-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+    .action-toolbar-buttons{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:12px;}
     .form-group{display:flex;flex-direction:column;gap:6px;}
     .form-group label{font-size:.84rem;font-weight:700;color:#506078;}
@@ -660,6 +676,7 @@
     .modal{display:none;position:fixed;inset:0;background:rgba(20,32,51,0.38);z-index:1000;align-items:center;justify-content:center;padding:20px;}
     .modal.active{display:flex;}
     .modal-content{background:#fff;border-radius:28px;width:min(920px,100%);max-height:92vh;overflow-y:auto;box-shadow:0 24px 50px rgba(20,32,51,0.18);border:1px solid #d8e0ec;}
+    .modal-content.modal-compact{max-width:780px;}
     .modal-content.modal-wide{max-width:1040px;}
     .modal-header{padding:20px 24px;border-bottom:1px solid #e4eaf2;display:flex;justify-content:space-between;align-items:center;}
     .modal-header h2{font-size:1.14rem;color:#172033;}
@@ -799,13 +816,67 @@
 
       <div id="active-tab" class="tab-content active">
         <div class="card">
-          <div class="card-head">
+          <div class="action-toolbar">
             <div>
-              <h2>სწრაფი პაციენტის დამატება</h2>
-              <div class="card-subtitle">მთავარ ეკრანზე ჩანს მხოლოდ აუცილებელი ველები. პირადი ნომერი, მისამართი, დაბადების თარიღი და სხვა დეტალები შეავსეთ რეგისტრატურიდან.</div>
+              <h2>პაციენტის დამატება</h2>
+              <div class="card-subtitle">სწრაფი დამატება იხსნება ცალკე ფანჯარაში, ხოლო `რეგისტრატურა`-დან შეავსებთ სრულ მონაცემებს.</div>
             </div>
-            <button type="button" class="btn btn-secondary" onclick="openRegistrationModal()">რეგისტრატურა</button>
+            <div class="action-toolbar-buttons">
+              <button type="button" class="btn btn-primary" onclick="openQuickAddModal()">პაციენტის დამატება</button>
+              <button type="button" class="btn btn-secondary" onclick="openRegistrationModal()">რეგისტრატურა</button>
+              <button type="button" class="clear-all-btn" onclick="clearAllData()">ყველა პაციენტის წაშლა</button>
+            </div>
           </div>
+        </div>
+
+        <div class="card">
+          <h2>აქტიური პაციენტები</h2>
+          <div class="search-filter">
+            <input type="text" id="search" placeholder="ძებნა სახელით, ICD-10 კოდით, სტატუსით, ექიმით...">
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>საწოლი და გვარი</th><th>ICD-10 კოდი</th>
+                <th>ექიმი</th><th>კომენტარი</th><th>მოქმედება</th>
+              </tr>
+            </thead>
+            <tbody id="active-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="archive-tab" class="tab-content">
+        <div class="card">
+          <h2>არქივი</h2>
+          <div class="search-filter">
+            <input type="text" id="archive-search" placeholder="არქივში ძებნა: სახელი, სტატუსი, ექიმი, თარიღი...">
+          </div>
+          <div id="archive-groups" class="archive-groups"></div>
+        </div>
+      </div>
+
+      <div id="statistics-tab" class="tab-content">
+        <div class="card">
+          <h2>დღიური სტატისტიკა</h2>
+          <div class="stats-grid">
+            <div class="stat-card"><h3>აქტიური</h3><div class="number" id="stat-active">0</div></div>
+            <div class="stat-card"><h3>დღეს დამატებული</h3><div class="number" id="stat-today-added">0</div></div>
+            <div class="stat-card"><h3>დღეს გაწერილი</h3><div class="number" id="stat-today-deleted">0</div></div>
+            <div class="stat-card"><h3>სულ არქივში</h3><div class="number" id="stat-archived">0</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK ADD MODAL -->
+    <div id="quick-add-modal" class="modal">
+      <div class="modal-content modal-compact">
+        <div class="modal-header">
+          <h2>პაციენტის სწრაფი დამატება</h2>
+          <button class="modal-close" type="button" onclick="closeQuickAddModal()">×</button>
+        </div>
+        <div class="modal-body">
           <form id="patient-form">
             <div class="form-grid">
               <div class="form-group">
@@ -849,48 +920,9 @@
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary">დამატება</button>
-              <button type="button" class="btn btn-secondary" onclick="openRegistrationModal()">სრული რეგისტრაცია</button>
+              <button type="button" class="btn btn-secondary" onclick="openRegistrationModal()">რეგისტრატურა</button>
             </div>
           </form>
-          <button type="button" class="clear-all-btn" onclick="clearAllData()">ყველა პაციენტის წაშლა</button>
-        </div>
-
-        <div class="card">
-          <h2>აქტიური პაციენტები</h2>
-          <div class="search-filter">
-            <input type="text" id="search" placeholder="ძებნა სახელით, ICD-10 კოდით, სტატუსით, ექიმით...">
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>საწოლი და გვარი</th><th>ICD-10 კოდი</th>
-                <th>ექიმი</th><th>კომენტარი</th><th>მოქმედება</th>
-              </tr>
-            </thead>
-            <tbody id="active-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div id="archive-tab" class="tab-content">
-        <div class="card">
-          <h2>არქივი</h2>
-          <div class="search-filter">
-            <input type="text" id="archive-search" placeholder="არქივში ძებნა: სახელი, სტატუსი, ექიმი, თარიღი...">
-          </div>
-          <div id="archive-groups" class="archive-groups"></div>
-        </div>
-      </div>
-
-      <div id="statistics-tab" class="tab-content">
-        <div class="card">
-          <h2>დღიური სტატისტიკა</h2>
-          <div class="stats-grid">
-            <div class="stat-card"><h3>აქტიური</h3><div class="number" id="stat-active">0</div></div>
-            <div class="stat-card"><h3>დღეს დამატებული</h3><div class="number" id="stat-today-added">0</div></div>
-            <div class="stat-card"><h3>დღეს გაწერილი</h3><div class="number" id="stat-today-deleted">0</div></div>
-            <div class="stat-card"><h3>სულ არქივში</h3><div class="number" id="stat-archived">0</div></div>
-          </div>
         </div>
       </div>
     </div>
