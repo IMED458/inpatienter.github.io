@@ -31,6 +31,7 @@
     let editingId = null;
     let checklistMetaByPatient = {};
     let checklistUnsubscribe = null;
+    let archiveExpandedGroups = {};
 
     function isChecklistMarked(pid) { return Boolean(checklistMetaByPatient[pid]?.manualDone); }
 
@@ -87,6 +88,12 @@
       if (!ts || !ts.toDate) return '—';
       const d = ts.toDate();
       return `${d.getDate()} ${getMonthName(d.getMonth())} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function formatDateOnly(ts) {
+      if (!ts || !ts.toDate) return 'თარიღი უცნობია';
+      const d = ts.toDate();
+      return `${d.getDate()} ${getMonthName(d.getMonth())} ${d.getFullYear()}`;
     }
 
     function formatDtStr(str) {
@@ -186,6 +193,7 @@
     window.openRoom = function(room) {
       const roomName = room === 'observation' ? 'ობსერვაცია' : 'შოკის დარბაზი';
       const roomSubtitle = room === 'observation' ? 'ობსერვაციის პაციენტების მართვა' : 'შოკის დარბაზის პაციენტების მართვა';
+      archiveExpandedGroups = {};
       currentCollection = collection(db, room === 'observation' ? 'observation_room' : 'shock_room');
       document.getElementById('welcome-screen').style.display = 'none';
       document.getElementById('app-container').style.display = 'block';
@@ -214,6 +222,17 @@
 
     function getPatientStatusMeta(status) {
       return PATIENT_STATUS_META[status] || { className: 'status-neutral' };
+    }
+
+    function getArchiveGroupData(patient) {
+      const sourceTs = patient.archived_at || patient.timestamp || null;
+      if (!sourceTs?.toDate) {
+        return { key: 'unknown-date', label: 'თარიღი უცნობია', sortMs: 0 };
+      }
+      const d = sourceTs.toDate();
+      const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const sortMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      return { key, label: formatDateOnly(sourceTs), sortMs };
     }
 
     function renderChecklistToggle(id) {
@@ -299,10 +318,28 @@
       }
       list.sort((a,b) => (b.archived_at?.toMillis() || 0) - (a.archived_at?.toMillis() || 0));
 
-      const tbody = document.getElementById('archive-tbody');
-      tbody.innerHTML = list.length === 0
-        ? '<tr><td colspan="7" class="empty-state">არქივი ცარიელია</td></tr>'
-        : list.map(p => `
+      const groupsHost = document.getElementById('archive-groups');
+      if (list.length === 0) {
+        groupsHost.innerHTML = '<div class="empty-state archive-empty-state">არქივი ცარიელია</div>';
+        return;
+      }
+
+      const grouped = [];
+      const groupedMap = new Map();
+      list.forEach(patient => {
+        const group = getArchiveGroupData(patient);
+        if (!groupedMap.has(group.key)) {
+          groupedMap.set(group.key, { ...group, patients: [] });
+          grouped.push(groupedMap.get(group.key));
+        }
+        groupedMap.get(group.key).patients.push(patient);
+      });
+      grouped.sort((a, b) => b.sortMs - a.sortMs);
+
+      groupsHost.innerHTML = grouped.map((group, index) => {
+        const isExpanded = Boolean(archiveExpandedGroups[group.key]);
+        const countLabel = `${group.patients.length} პაციენტი`;
+        const rows = group.patients.map(p => `
           <tr class="patient-row">
             <td>${renderPatientCell(p)}</td>
             <td>${escapeHtml(p.icd10_code || '—')}</td>
@@ -318,7 +355,36 @@
               ${renderActionIconButton('delete', 'წაშლა', `permanentlyDelete('${p.id}')`)}
             </td>
           </tr>`).join('');
+
+        return `
+          <section class="archive-group ${isExpanded ? 'is-open' : ''}">
+            <button class="archive-group-toggle" type="button" onclick="toggleArchiveGroup('${group.key}')">
+              <span class="archive-group-date">${escapeHtml(group.label)}</span>
+              <span class="archive-group-meta">
+                <span class="archive-group-count">${countLabel}</span>
+                <span class="archive-group-arrow">${isExpanded ? '−' : '+'}</span>
+              </span>
+            </button>
+            <div class="archive-group-body" style="display:${isExpanded ? 'block' : 'none'};">
+              <table class="archive-table">
+                <thead>
+                  <tr>
+                    <th>საწოლი და გვარი</th><th>ICD-10 კოდი</th>
+                    <th>ექიმი</th><th>კომენტარი</th><th>ჩარიცხვა</th><th>არქივში</th><th>მოქმედება</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </section>
+        `;
+      }).join('');
     }
+
+    window.toggleArchiveGroup = key => {
+      archiveExpandedGroups[key] = !archiveExpandedGroups[key];
+      renderArchive();
+    };
 
     function updateStats() {
       const today = new Date().toDateString();
@@ -560,6 +626,17 @@
     th:first-child,td:first-child{width:420px;}
     .patient-row:hover td{background:#fafcff;}
     .empty-state{text-align:center;color:#94a3b8;padding:38px 12px;font-style:italic;}
+    .archive-empty-state{padding:22px 12px;}
+    .archive-groups{display:flex;flex-direction:column;gap:14px;}
+    .archive-group{border:1px solid #e1e8f0;border-radius:22px;overflow:hidden;background:#fbfdff;}
+    .archive-group.is-open{background:#fff;}
+    .archive-group-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 22px;background:transparent;border:none;cursor:pointer;text-align:left;}
+    .archive-group-date{font-size:1rem;font-weight:800;color:#172033;}
+    .archive-group-meta{display:flex;align-items:center;gap:12px;flex-shrink:0;}
+    .archive-group-count{padding:8px 12px;border-radius:999px;background:#eef2f8;color:#506078;font-size:.84rem;font-weight:700;}
+    .archive-group-arrow{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#eaeaff;color:#5b45ff;font-size:1.1rem;font-weight:800;}
+    .archive-group-body{padding:0 18px 16px;}
+    .archive-table th:first-child,.archive-table td:first-child{width:420px;}
     .patient-main{display:inline-flex;align-items:center;gap:14px;flex-wrap:nowrap;white-space:nowrap;min-width:max-content;}
     .bed-cell{display:flex;align-items:center;gap:12px;min-width:auto;flex-shrink:0;}
     .bed-number{font-size:1.12rem;font-weight:800;color:#172033;}
@@ -801,15 +878,7 @@
           <div class="search-filter">
             <input type="text" id="archive-search" placeholder="არქივში ძებნა: სახელი, სტატუსი, ექიმი, თარიღი...">
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>საწოლი და გვარი</th><th>ICD-10 კოდი</th>
-                <th>ექიმი</th><th>კომენტარი</th><th>ჩარიცხვა</th><th>არქივში</th><th>მოქმედება</th>
-              </tr>
-            </thead>
-            <tbody id="archive-tbody"></tbody>
-          </table>
+          <div id="archive-groups" class="archive-groups"></div>
         </div>
       </div>
 
