@@ -497,7 +497,7 @@
 
     #app-container{display:none;}
     .back-to-rooms{position:fixed;top:24px;left:24px;z-index:110;background:#ffffff;border:1px solid #d8e0ec;color:#5b45ff;padding:12px 18px;border-radius:16px;cursor:pointer;font-size:.92rem;font-weight:700;box-shadow:0 12px 24px rgba(20,32,51,0.08);}
-    .container{max-width:1480px;margin:0 auto;padding:110px 16px 48px;}
+    .container{max-width:1480px;margin:0 auto;padding:82px 16px 40px;}
     .header{padding:18px 24px;border-radius:28px;margin-bottom:20px;}
     .tabs{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;}
     .tab-btn{border:none;background:#f5f7fb;color:#64748b;padding:14px 22px;border-radius:18px;cursor:pointer;font-size:.95rem;font-weight:700;transition:all .2s ease;border:1px solid #dbe2ec;}
@@ -536,15 +536,16 @@
 
     table{width:100%;border-collapse:collapse;}
     th{padding:18px 8px 16px;text-align:left;font-size:.82rem;font-weight:800;color:#6b7b93;border-bottom:1px solid #e4eaf2;letter-spacing:.02em;}
-    td{padding:20px 8px;border-bottom:1px solid #ecf1f6;vertical-align:middle;font-size:1rem;color:#43506a;}
+    td{padding:16px 8px;border-bottom:1px solid #ecf1f6;vertical-align:middle;font-size:1rem;color:#43506a;}
+    th:first-child,td:first-child{width:420px;}
     .patient-row:hover td{background:#fafcff;}
     .empty-state{text-align:center;color:#94a3b8;padding:38px 12px;font-style:italic;}
-    .patient-main{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
-    .bed-cell{display:flex;align-items:center;gap:12px;min-width:88px;}
+    .patient-main{display:inline-flex;align-items:center;gap:14px;flex-wrap:nowrap;white-space:nowrap;min-width:max-content;}
+    .bed-cell{display:flex;align-items:center;gap:12px;min-width:auto;flex-shrink:0;}
     .bed-number{font-size:1.12rem;font-weight:800;color:#172033;}
     .bed-mark{width:34px;height:34px;border-radius:50%;border:none;background:#e2edf9;color:#7d91aa;font-size:1rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s ease;}
     .bed-mark.is-done{background:#dcfce7;color:#109a5b;}
-    .patient-name-pill{display:inline-flex;align-items:center;min-height:48px;padding:10px 20px;border-radius:999px;font-size:1.03rem;font-weight:800;line-height:1.2;border:1px solid transparent;}
+    .patient-name-pill{display:inline-flex;align-items:center;min-height:48px;padding:10px 20px;border-radius:999px;font-size:1.03rem;font-weight:800;line-height:1.2;border:1px solid transparent;white-space:nowrap;flex-shrink:0;}
     .status-neutral{background:#eef2f6;color:#334155;border-color:#dce3ec;}
     .status-stable{background:#dff5e8;color:#047857;border-color:#9de8bd;}
     .status-critical{background:#fde4ea;color:#d9044d;border-color:#f7b7c8;}
@@ -582,8 +583,7 @@
       .room-cards{grid-template-columns:1fr;}
       .room-choice{min-height:340px;}
       .welcome h1{font-size:2.8rem;}
-      .container{padding-top:126px;}
-      .patient-main{align-items:flex-start;}
+      .container{padding-top:106px;}
     }
 
     @media(max-width:640px){
