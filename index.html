@@ -221,6 +221,20 @@
       return `<button class="bed-mark ${marked ? 'is-done' : ''}" type="button" title="${marked ? 'მონიშვნის მოხსნა' : 'მონიშვნა'}" onclick="toggleChecklistMark('${id}')">${marked ? '✓' : ''}</button>`;
     }
 
+    function getActionIconSvg(type) {
+      const icons = {
+        edit: `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.2-10.2a2.4 2.4 0 0 0 0-3.4l-.6-.6a2.4 2.4 0 0 0-3.4 0L4 16v4Z"/><path d="m12.8 7.2 4 4"/></svg>`,
+        archive: `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 7 4v10l-7 4-7-4V7l7-4Z"/><path d="m5 7 7 4 7-4"/><path d="M12 11v10"/></svg>`,
+        delete: `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"/><path d="M9 7V4h6v3"/><path d="M8 7v11a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>`,
+        restore: `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H5v4"/><path d="M5 11a7 7 0 1 0 2-4.9L5 7"/></svg>`
+      };
+      return icons[type] || '';
+    }
+
+    function renderActionIconButton(type, title, onClick) {
+      return `<button class="btn action-icon-btn btn-${type}" type="button" title="${title}" onclick="${onClick}">${getActionIconSvg(type)}</button>`;
+    }
+
     function renderPatientCell(p) {
       const statusMeta = getPatientStatusMeta(p.status);
       return `
@@ -259,9 +273,9 @@
             <td>${escapeHtml(p.doctor||'—')}</td>
             <td>${escapeHtml(p.comment||'—')}</td>
             <td class="action-buttons">
-              <button class="btn btn-edit" type="button" title="რედაქტირება" onclick="openEditModal('${p.id}')">✏️</button>
-              <button class="btn btn-archive" type="button" title="არქივი" onclick="archivePatient('${p.id}')">📦</button>
-              <button class="btn btn-delete" type="button" title="წაშლა" onclick="permanentlyDelete('${p.id}')">🗑️</button>
+              ${renderActionIconButton('edit', 'რედაქტირება', `openEditModal('${p.id}')`)}
+              ${renderActionIconButton('archive', 'არქივი', `archivePatient('${p.id}')`)}
+              ${renderActionIconButton('delete', 'წაშლა', `permanentlyDelete('${p.id}')`)}
             </td>
           </tr>`).join('');
     }
@@ -297,11 +311,11 @@
             <td style="font-size:.82em;">${formatDate(p.timestamp)}</td>
             <td style="font-size:.82em;">${formatDate(p.archived_at)}</td>
             <td class="action-buttons">
-              <button class="btn btn-restore" type="button" title="აღდგენა" onclick="restorePatient('${p.id}')">🔄</button>
+              ${renderActionIconButton('restore', 'აღდგენა', `restorePatient('${p.id}')`)}
               <button class="btn btn-short btn-checklist-link" type="button" title="ჩექლისთი" onclick="openChecklist('${p.id}')">ჩექ</button>
               <button class="btn btn-short btn-emergency-link" type="button" title="ემერჯენსის გასინჯვა" onclick="openEmergency('${p.id}')">ემერ</button>
               <button class="btn btn-short btn-forma-link" type="button" title="ფორმა № IV-100/ა" onclick="openForma100('${p.id}')">100</button>
-              <button class="btn btn-delete" type="button" title="წაშლა" onclick="permanentlyDelete('${p.id}')">🗑️</button>
+              ${renderActionIconButton('delete', 'წაშლა', `permanentlyDelete('${p.id}')`)}
             </td>
           </tr>`).join('');
     }
@@ -530,8 +544,14 @@
     .btn-emergency-link{background:#f5dede;color:#d33c55;}
     .btn-forma-link{background:#e6e0f5;color:#6d38ff;}
     .action-buttons{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
-    .action-buttons .btn{width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;font-size:1.05rem;}
+    .action-buttons .btn{padding:0;display:inline-flex;align-items:center;justify-content:center;}
+    .action-buttons .action-icon-btn{width:58px;height:58px;border-radius:18px;box-shadow:none;}
     .action-buttons .btn-short{width:auto;padding:0 16px;font-size:.88rem;}
+    .action-icon{width:22px;height:22px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+    .action-icon-btn.btn-edit{background:#fdf3de;color:#dd940f;}
+    .action-icon-btn.btn-archive{background:#dff5e8;color:#0b9a67;}
+    .action-icon-btn.btn-delete{background:#fdecef;color:#ff2d5d;}
+    .action-icon-btn.btn-restore{background:#e7efff;color:#4c6fff;}
     .clear-all-btn{background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;padding:12px 16px;border-radius:16px;cursor:pointer;font-size:.84rem;font-weight:700;margin-top:16px;font-family:inherit;}
 
     table{width:100%;border-collapse:collapse;}
