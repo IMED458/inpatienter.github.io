@@ -235,6 +235,12 @@
       return { key, label: formatDateOnly(sourceTs), sortMs };
     }
 
+    function getArchivedPatientsByGroupKey(key) {
+      return patients
+        .filter(p => p.archived)
+        .filter(p => getArchiveGroupData(p).key === key);
+    }
+
     function renderChecklistToggle(id) {
       const marked = isChecklistMarked(id);
       return `<button class="bed-mark ${marked ? 'is-done' : ''}" type="button" title="${marked ? 'მონიშვნის მოხსნა' : 'მონიშვნა'}" onclick="toggleChecklistMark('${id}')">${marked ? '✓' : ''}</button>`;
@@ -358,13 +364,16 @@
 
         return `
           <section class="archive-group ${isExpanded ? 'is-open' : ''}">
-            <button class="archive-group-toggle" type="button" onclick="toggleArchiveGroup('${group.key}')">
-              <span class="archive-group-date">${escapeHtml(group.label)}</span>
-              <span class="archive-group-meta">
-                <span class="archive-group-count">${countLabel}</span>
-                <span class="archive-group-arrow">${isExpanded ? '−' : '+'}</span>
-              </span>
-            </button>
+            <div class="archive-group-header">
+              <button class="archive-group-toggle" type="button" onclick="toggleArchiveGroup('${group.key}')">
+                <span class="archive-group-date">${escapeHtml(group.label)}</span>
+                <span class="archive-group-meta">
+                  <span class="archive-group-count">${countLabel}</span>
+                  <span class="archive-group-arrow">${isExpanded ? '−' : '+'}</span>
+                </span>
+              </button>
+              <button class="archive-group-delete" type="button" onclick="deleteArchiveGroup('${group.key}')">წაშლა</button>
+            </div>
             <div class="archive-group-body" style="display:${isExpanded ? 'block' : 'none'};">
               <table class="archive-table">
                 <thead>
@@ -384,6 +393,22 @@
     window.toggleArchiveGroup = key => {
       archiveExpandedGroups[key] = !archiveExpandedGroups[key];
       renderArchive();
+    };
+
+    window.deleteArchiveGroup = async key => {
+      const groupPatients = getArchivedPatientsByGroupKey(key);
+      if (!groupPatients.length) return;
+      const groupLabel = getArchiveGroupData(groupPatients[0]).label;
+      const count = groupPatients.length;
+      if (!confirm(`${groupLabel}-ის არქივიდან წაიშლება ${count} პაციენტი. გააგრძელოთ?`)) return;
+      if (!confirm('დარწმუნებული ხართ? ეს მოქმედება შეუქცევადია.')) return;
+      try {
+        await Promise.all(groupPatients.map(p => deleteDoc(doc(db, currentCollection.path, p.id))));
+        delete archiveExpandedGroups[key];
+        showToast('დღის არქივი წაიშალა');
+      } catch (err) {
+        showToast('შეცდომა: ' + err.message, true);
+      }
     };
 
     function updateStats() {
@@ -646,11 +671,13 @@
     .archive-groups{display:flex;flex-direction:column;gap:14px;}
     .archive-group{border:1px solid #e1e8f0;border-radius:22px;overflow:hidden;background:#fbfdff;}
     .archive-group.is-open{background:#fff;}
-    .archive-group-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 22px;background:transparent;border:none;cursor:pointer;text-align:left;}
+    .archive-group-header{display:flex;align-items:center;gap:12px;padding:12px 14px 12px 18px;}
+    .archive-group-toggle{flex:1 1 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 4px;background:transparent;border:none;cursor:pointer;text-align:left;}
     .archive-group-date{font-size:1rem;font-weight:800;color:#172033;}
     .archive-group-meta{display:flex;align-items:center;gap:12px;flex-shrink:0;}
     .archive-group-count{padding:8px 12px;border-radius:999px;background:#eef2f8;color:#506078;font-size:.84rem;font-weight:700;}
     .archive-group-arrow{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#eaeaff;color:#5b45ff;font-size:1.1rem;font-weight:800;}
+    .archive-group-delete{border:none;background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;padding:10px 14px;border-radius:14px;cursor:pointer;font-size:.82rem;font-weight:800;flex:0 0 auto;}
     .archive-group-body{padding:0 18px 16px;}
     .archive-table th:first-child,.archive-table td:first-child{width:420px;}
     .patient-main{display:inline-flex;align-items:center;gap:14px;flex-wrap:nowrap;white-space:nowrap;min-width:max-content;}
