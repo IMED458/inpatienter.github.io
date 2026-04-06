@@ -190,6 +190,18 @@
       if (input && badge) badge.textContent = calcAge(input.value);
     }
 
+    function getRoomKeyFromCollectionId(collectionId) {
+      return collectionId === 'observation_room' ? 'observation' : collectionId === 'shock_room' ? 'shock' : '';
+    }
+
+    function buildMonitorUrl() {
+      const roomKey = getRoomKeyFromCollectionId(currentCollection?.id || '');
+      if (!roomKey) return '';
+      const url = new URL('monitor.html', window.location.href);
+      url.searchParams.set('room', roomKey);
+      return url.toString();
+    }
+
     window.openRoom = function(room) {
       const roomName = room === 'observation' ? 'ობსერვაცია' : 'შოკის დარბაზი';
       const roomSubtitle = room === 'observation' ? 'ობსერვაციის პაციენტების მართვა' : 'შოკის დარბაზის პაციენტების მართვა';
@@ -200,6 +212,15 @@
       document.getElementById('app-room-name').textContent = roomName;
       document.getElementById('app-room-subtitle').textContent = roomSubtitle;
       subscribeChecklistStatus(); loadPatients();
+    };
+
+    window.openMonitor = () => {
+      const url = buildMonitorUrl();
+      if (!url) {
+        showToast('ჯერ აირჩიეთ დარბაზი', true);
+        return;
+      }
+      window.open(url, '_blank', 'noopener');
     };
 
     function loadPatients() {
@@ -628,6 +649,7 @@
     .brand-copy strong{font-size:1.08rem;font-weight:800;color:#172033;letter-spacing:-0.03em;}
     .brand-copy span{font-size:.84rem;font-weight:700;letter-spacing:.12em;color:#64748b;}
     .header-side{display:flex;align-items:flex-end;justify-content:flex-end;gap:12px;flex-wrap:wrap;}
+    .header-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
     .header-room{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;}
     .header-room strong{font-size:1.02rem;font-weight:800;color:#172033;}
     .header-room span{font-size:.86rem;color:#64748b;}
@@ -677,7 +699,7 @@
     .btn-primary:hover{background:#4b36f0;}
     .btn-secondary{background:#eef2f8;color:#506078;border:1px solid #d7dfeb;}
     .btn-with-icon{display:inline-flex;align-items:center;justify-content:center;gap:10px;}
-    .btn-plus-icon{width:16px;height:16px;display:block;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;}
+    .btn-plus-icon,.btn-monitor-icon{width:16px;height:16px;display:block;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
     .btn-edit{background:#fdf3de;color:#d88b12;}
     .btn-archive{background:#e8f7ee;color:#109a5b;}
     .btn-delete{background:#fdebee;color:#ef476f;}
@@ -757,6 +779,7 @@
     @media(max-width:1100px){
       .header{grid-template-columns:1fr;justify-items:center;text-align:center;}
       .header-side{justify-content:center;align-items:center;}
+      .header-tools{justify-content:center;}
       .header-room{align-items:center;text-align:center;}
     }
 
@@ -848,7 +871,10 @@
           <button class="tab-btn" onclick="switchTab('statistics')">სტატისტიკა</button>
         </div>
         <div class="header-side">
-          <button type="button" class="btn btn-primary btn-with-icon" onclick="openQuickAddModal()"><svg class="btn-plus-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"></path></svg><span>პაციენტის დამატება</span></button>
+          <div class="header-tools">
+            <button type="button" class="btn btn-primary btn-with-icon" onclick="openQuickAddModal()"><svg class="btn-plus-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"></path></svg><span>პაციენტის დამატება</span></button>
+            <button type="button" class="btn btn-secondary btn-with-icon" onclick="openMonitor()"><svg class="btn-monitor-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="3.5" y="4" width="13" height="9" rx="1.8"></rect><path d="M7 16h6"></path><path d="M10 13v3"></path></svg><span>მონიტორი</span></button>
+          </div>
           <div class="header-room">
             <strong id="app-room-name">დარბაზი</strong>
             <span id="app-room-subtitle">სტაციონარული პაციენტების მართვა</span>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>მონიტორი</title>
+  <link rel="icon" type="image/png" href="inpatient.png">
+  <link rel="shortcut icon" type="image/png" href="inpatient.png">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      min-height:100vh;
+      font-family:'Roboto',sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(91,69,255,0.24), transparent 30%),
+        radial-gradient(circle at top right, rgba(58,163,255,0.18), transparent 28%),
+        linear-gradient(180deg,#0f172a 0%,#10192e 100%);
+      color:#f8fbff;
+    }
+    .monitor-shell{
+      min-height:100vh;
+      padding:22px;
+      display:flex;
+      align-items:stretch;
+      justify-content:center;
+    }
+    .monitor-root{width:100%;}
+    .monitor-board{
+      width:100%;
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:18px;
+      align-content:start;
+    }
+    .monitor-bed{
+      min-height:154px;
+      border-radius:30px;
+      padding:22px 24px;
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(226,232,240,0.14);
+      box-shadow:0 20px 40px rgba(2,8,23,0.28);
+      backdrop-filter:blur(18px);
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      gap:18px;
+    }
+    .monitor-bed.is-empty{
+      background:rgba(255,255,255,0.04);
+      border-color:rgba(148,163,184,0.14);
+      box-shadow:none;
+    }
+    .monitor-bed-number{
+      font-size:clamp(2rem,3vw,3rem);
+      line-height:1;
+      font-weight:800;
+      letter-spacing:-0.05em;
+      color:#ffffff;
+    }
+    .monitor-bed.is-empty .monitor-bed-number{color:#cbd5e1;}
+    .monitor-patient-stack{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:64px;
+    }
+    .monitor-patient-name{
+      font-size:clamp(1.15rem,1.9vw,2rem);
+      line-height:1.12;
+      font-weight:700;
+      letter-spacing:-0.03em;
+      color:#f8fbff;
+      word-break:break-word;
+    }
+    .monitor-patient-name.is-empty{
+      color:#94a3b8;
+      font-weight:500;
+    }
+    .monitor-state{
+      min-height:calc(100vh - 44px);
+      border-radius:34px;
+      border:1px solid rgba(226,232,240,0.14);
+      background:rgba(255,255,255,0.06);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:28px;
+      font-size:clamp(1.2rem,2vw,1.8rem);
+      font-weight:700;
+      color:#dbe7f5;
+    }
+    @media(max-width:1280px){
+      .monitor-board{grid-template-columns:repeat(3,minmax(0,1fr));}
+    }
+    @media(max-width:980px){
+      .monitor-shell{padding:18px;}
+      .monitor-board{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .monitor-bed{min-height:142px;border-radius:26px;padding:20px;}
+    }
+    @media(max-width:640px){
+      .monitor-board{grid-template-columns:1fr;}
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+    import { collection, getFirestore, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCDze1tz15HdKZVSPOPW_-7t-9ag4AiZYs",
+      authDomain: "clinic-inpatient.firebaseapp.com",
+      projectId: "clinic-inpatient",
+      storageBucket: "clinic-inpatient.firebasestorage.app",
+      messagingSenderId: "586729386322",
+      appId: "1:586729386322:web:17a92324784c2c988a4a8b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const ROOM_CONFIG = {
+      observation: { collectionId: 'observation_room', title: 'ობსერვაცია' },
+      shock: { collectionId: 'shock_room', title: 'შოკის დარბაზი' }
+    };
+    const MONITOR_BEDS = ['1','2','3','4','5','6','7','8','9','10','ლოჯი','მცირე','მოვა'];
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const node = document.createElement('div');
+      node.textContent = text;
+      return node.innerHTML;
+    }
+
+    function normalizeRoomKey(value) {
+      if (value === 'observation_room') return 'observation';
+      if (value === 'shock_room') return 'shock';
+      return ROOM_CONFIG[value] ? value : '';
+    }
+
+    function getBedOrder(bed) {
+      if (!bed) return 999;
+      const number = parseInt(bed, 10);
+      if (!Number.isNaN(number) && number >= 1 && number <= 10) return number;
+      if (bed === 'ლოჯი') return 11;
+      if (bed === 'მცირე') return 12;
+      if (bed === 'მოვა') return 13;
+      return 999;
+    }
+
+    function normalizeBedValue(value) {
+      return String(value || '').trim();
+    }
+
+    function renderState(message) {
+      document.getElementById('monitor-root').innerHTML = `<div class="monitor-state">${escapeHtml(message)}</div>`;
+    }
+
+    function renderMonitor(activePatients) {
+      const patientBuckets = new Map();
+      activePatients.forEach(patient => {
+        const bed = normalizeBedValue(patient.bed) || 'უცნობი';
+        if (!patientBuckets.has(bed)) patientBuckets.set(bed, []);
+        patientBuckets.get(bed).push(patient);
+      });
+
+      const extraBeds = [...patientBuckets.keys()]
+        .filter(bed => !MONITOR_BEDS.includes(bed))
+        .sort((a, b) => getBedOrder(a) - getBedOrder(b) || a.localeCompare(b, 'ka'));
+      const orderedBeds = [...MONITOR_BEDS, ...extraBeds];
+
+      document.getElementById('monitor-root').innerHTML = `
+        <div class="monitor-board">
+          ${orderedBeds.map(bed => {
+            const bedPatients = patientBuckets.get(bed) || [];
+            return `
+              <section class="monitor-bed ${bedPatients.length ? '' : 'is-empty'}">
+                <div class="monitor-bed-number">${escapeHtml(bed)}</div>
+                <div class="monitor-patient-stack">
+                  ${bedPatients.length
+                    ? bedPatients
+                        .map(patient => `<div class="monitor-patient-name">${escapeHtml(patient.patient_name || '—')}</div>`)
+                        .join('')
+                    : '<div class="monitor-patient-name is-empty">—</div>'}
+                </div>
+              </section>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    const roomKey = normalizeRoomKey(new URLSearchParams(window.location.search).get('room') || '');
+    if (!roomKey) {
+      renderState('მონიტორისთვის დარბაზი ვერ მოიძებნა');
+    } else {
+      document.title = `${ROOM_CONFIG[roomKey].title} | მონიტორი`;
+      onSnapshot(collection(db, ROOM_CONFIG[roomKey].collectionId), snapshot => {
+        const activePatients = snapshot.docs
+          .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter(patient => !patient.archived)
+          .sort((a, b) => getBedOrder(normalizeBedValue(a.bed)) - getBedOrder(normalizeBedValue(b.bed)));
+        renderMonitor(activePatients);
+      }, () => {
+        renderState('მონიტორის ჩატვირთვა ვერ მოხერხდა');
+      });
+    }
+  </script>
+</head>
+<body>
+  <main class="monitor-shell">
+    <div id="monitor-root" class="monitor-root" aria-live="polite"></div>
+  </main>
+</body>
+</html>
