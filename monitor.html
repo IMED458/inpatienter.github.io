@@ -13,10 +13,10 @@
       min-height:100vh;
       font-family:'Roboto',sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(91,69,255,0.24), transparent 30%),
-        radial-gradient(circle at top right, rgba(58,163,255,0.18), transparent 28%),
-        linear-gradient(180deg,#0f172a 0%,#10192e 100%);
-      color:#f8fbff;
+        radial-gradient(circle at top left, rgba(91,69,255,0.08), transparent 28%),
+        radial-gradient(circle at top right, rgba(58,163,255,0.12), transparent 26%),
+        #eef3f9;
+      color:#172033;
     }
     .monitor-shell{
       min-height:100vh;
@@ -37,40 +37,71 @@
       min-height:154px;
       border-radius:30px;
       padding:22px 24px;
-      background:rgba(255,255,255,0.08);
-      border:1px solid rgba(226,232,240,0.14);
-      box-shadow:0 20px 40px rgba(2,8,23,0.28);
-      backdrop-filter:blur(18px);
+      background:#ffffff;
+      border:1px solid #dde5ef;
+      box-shadow:0 20px 38px rgba(15,23,42,0.08);
       display:flex;
       flex-direction:column;
       justify-content:space-between;
       gap:18px;
     }
     .monitor-bed.is-empty{
-      background:rgba(255,255,255,0.04);
-      border-color:rgba(148,163,184,0.14);
+      background:#f8fbff;
+      border-color:#dce5ef;
       box-shadow:none;
+    }
+    .monitor-bed.status-neutral{
+      background:#eef2f6;
+      border-color:#dce3ec;
+    }
+    .monitor-bed.status-stable{
+      background:#dff5e8;
+      border-color:#9de8bd;
+    }
+    .monitor-bed.status-critical{
+      background:#fde4ea;
+      border-color:#f7b7c8;
+    }
+    .monitor-bed.status-observation{
+      background:#fcf1c7;
+      border-color:#f1d46d;
+    }
+    .monitor-bed.status-internal{
+      background:#ece5ff;
+      border-color:#d7c7ff;
     }
     .monitor-bed-number{
       font-size:clamp(2rem,3vw,3rem);
       line-height:1;
       font-weight:800;
       letter-spacing:-0.05em;
-      color:#ffffff;
+      color:#172033;
     }
-    .monitor-bed.is-empty .monitor-bed-number{color:#cbd5e1;}
+    .monitor-bed.is-empty .monitor-bed-number{color:#94a3b8;}
     .monitor-patient-stack{
       display:flex;
       flex-direction:column;
-      gap:10px;
+      gap:12px;
       min-height:64px;
+    }
+    .monitor-patient-entry{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
     }
     .monitor-patient-name{
       font-size:clamp(1.15rem,1.9vw,2rem);
       line-height:1.12;
       font-weight:700;
       letter-spacing:-0.03em;
-      color:#f8fbff;
+      color:#172033;
+      word-break:break-word;
+    }
+    .monitor-patient-diagnosis{
+      font-size:clamp(.92rem,1.3vw,1.18rem);
+      line-height:1.25;
+      font-weight:600;
+      color:#506078;
       word-break:break-word;
     }
     .monitor-patient-name.is-empty{
@@ -80,8 +111,8 @@
     .monitor-state{
       min-height:calc(100vh - 44px);
       border-radius:34px;
-      border:1px solid rgba(226,232,240,0.14);
-      background:rgba(255,255,255,0.06);
+      border:1px solid #dce5ef;
+      background:#ffffff;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -89,7 +120,7 @@
       padding:28px;
       font-size:clamp(1.2rem,2vw,1.8rem);
       font-weight:700;
-      color:#dbe7f5;
+      color:#506078;
     }
     @media(max-width:1280px){
       .monitor-board{grid-template-columns:repeat(3,minmax(0,1fr));}
@@ -123,6 +154,12 @@
       shock: { collectionId: 'shock_room', title: 'შოკის დარბაზი' }
     };
     const MONITOR_BEDS = ['1','2','3','4','5','6','7','8','9','10','ლოჯი','მცირე','მოვა'];
+    const STATUS_CLASS_MAP = {
+      'სტაბილური': 'status-stable',
+      'კრიტიკული': 'status-critical',
+      'გაურკვეველი': 'status-observation',
+      'შიგააქ': 'status-internal'
+    };
 
     function escapeHtml(text) {
       if (!text) return '';
@@ -151,6 +188,14 @@
       return String(value || '').trim();
     }
 
+    function getStatusClass(status) {
+      return STATUS_CLASS_MAP[String(status || '').trim()] || 'status-neutral';
+    }
+
+    function getDiagnosisValue(patient) {
+      return String(patient.diagnosis || patient.icd10_code || '').trim();
+    }
+
     function renderState(message) {
       document.getElementById('monitor-root').innerHTML = `<div class="monitor-state">${escapeHtml(message)}</div>`;
     }
@@ -172,13 +217,19 @@
         <div class="monitor-board">
           ${orderedBeds.map(bed => {
             const bedPatients = patientBuckets.get(bed) || [];
+            const bedStatusClass = bedPatients.length ? getStatusClass(bedPatients[0].status) : '';
             return `
-              <section class="monitor-bed ${bedPatients.length ? '' : 'is-empty'}">
+              <section class="monitor-bed ${bedPatients.length ? bedStatusClass : 'is-empty'}">
                 <div class="monitor-bed-number">${escapeHtml(bed)}</div>
                 <div class="monitor-patient-stack">
                   ${bedPatients.length
                     ? bedPatients
-                        .map(patient => `<div class="monitor-patient-name">${escapeHtml(patient.patient_name || '—')}</div>`)
+                        .map(patient => `
+                          <div class="monitor-patient-entry">
+                            <div class="monitor-patient-name">${escapeHtml(patient.patient_name || '—')}</div>
+                            ${getDiagnosisValue(patient) ? `<div class="monitor-patient-diagnosis">${escapeHtml(getDiagnosisValue(patient))}</div>` : ''}
+                          </div>
+                        `)
                         .join('')
                     : '<div class="monitor-patient-name is-empty">—</div>'}
                 </div>
