@@ -566,11 +566,15 @@
       editingId = id;
       const editForm = document.getElementById('edit-form');
       fillPatientForm(editForm, p);
-      setFormValue(editForm, 'room', getRoomKeyFromCollectionId(currentCollection?.id || ''));
+      document.getElementById('edit-room').value = getRoomKeyFromCollectionId(currentCollection?.id || '');
       document.getElementById('edit-modal').classList.add('active');
     };
 
     window.closeEditModal = () => document.getElementById('edit-modal').classList.remove('active');
+    window.openEditChecklist = () => { if (editingId) openChecklist(editingId); };
+    window.openEditEmergency = () => { if (editingId) openEmergency(editingId); };
+    window.openEditForma100 = () => { if (editingId) openForma100(editingId); };
+    window.openEditPrescription = () => { if (editingId) openPrescription(editingId); };
     window.archiveEditingPatient = () => {
       if (!editingId) return;
       const id = editingId;
@@ -883,6 +887,10 @@
     .modal-footer{padding:18px 24px;background:#f8fafc;border-top:1px solid #e4eaf2;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;}
     .modal-footer-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
     .modal-footer-controls{display:flex;gap:12px;align-items:center;justify-content:flex-end;flex-wrap:wrap;}
+    .edit-room-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-radius:16px;background:#eef2f8;border:1px solid #d7dfeb;}
+    .edit-room-control label{font-size:.8rem;font-weight:800;color:#506078;}
+    .edit-room-select{min-width:170px;border:1px solid #d6dfeb;border-radius:12px;padding:10px 12px;font-size:.9rem;font-family:inherit;background:#fff;color:#172033;outline:none;}
+    .edit-room-select:focus{border-color:#b9c8dd;box-shadow:0 0 0 4px rgba(91,69,255,0.08);}
 
     .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#172033;color:#fff;padding:14px 22px;border-radius:18px;font-size:.92rem;opacity:0;transition:all .3s ease;pointer-events:none;z-index:1200;box-shadow:0 18px 30px rgba(20,32,51,0.18);}
     .toast.active{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -1198,10 +1206,10 @@
           <button class="modal-close" onclick="closeEditModal()">×</button>
         </div>
         <div class="modal-body">
-          <div class="card-subtitle" style="margin-bottom:14px;">დარბაზის შეცვლისას პაციენტი სრულად გადაიტანება არჩეულ განყოფილებაში.</div>
           <form id="edit-form">
             <div class="form-grid">
-              <div class="form-group"><label>საწოლი</label>
+              <div class="form-group">
+                <label for="edit-bed">საწოლი</label>
                 <select id="edit-bed" name="bed">
                   <option value="">აირჩიეთ</option>
                   <option>1</option><option>2</option><option>3</option><option>4</option>
@@ -1210,36 +1218,50 @@
                   <option value="ლოჯი">ლოჯი</option><option value="მცირე">მცირე</option><option value="მოვა">მოვა</option>
                 </select>
               </div>
-              <div class="form-group"><label>სახელი და გვარი</label><input id="edit-name" name="patient_name"></div>
-              <div class="form-group"><label>ICD-10</label><input id="edit-icd" name="icd10_code"></div>
-              <div class="form-group"><label>ექიმი</label><input id="edit-doctor" name="doctor"></div>
-            </div>
-            <div class="form-grid">
               <div class="form-group">
-                <label>პაციენტის სტატუსი</label>
-                <select id="edit-status" name="status">
-                  <option value="">აირჩიეთ სტატუსი</option>
-                  <option value="სტაბილური">სტაბილური</option>
-                  <option value="კრიტიკული">კრიტიკული</option>
-                  <option value="გაურკვეველი">გაურკვეველი</option>
-                  <option value="შიგააქ">შიგააქ</option>
-                </select>
+                <label for="edit-name">სახელი და გვარი</label>
+                <input id="edit-name" name="patient_name">
               </div>
               <div class="form-group">
-                <label>დარბაზი</label>
-                <select id="edit-room" name="room">
-                  <option value="observation">ობსერვაცია</option>
-                  <option value="shock">შოკის დარბაზი</option>
-                </select>
+                <label for="edit-icd">ICD-10 კოდი</label>
+                <input id="edit-icd" name="icd10_code">
+              </div>
+              <div class="form-group">
+                <label for="edit-doctor">ექიმი</label>
+                <input id="edit-doctor" name="doctor">
               </div>
             </div>
-            <div class="form-group"><label>კომენტარი</label><textarea id="edit-comment" name="comment" rows="2"></textarea></div>
+            <div class="form-group">
+              <label for="edit-comment">კომენტარი</label>
+              <textarea id="edit-comment" name="comment" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="edit-status">პაციენტის სტატუსი</label>
+              <select id="edit-status" name="status">
+                <option value="">აირჩიეთ სტატუსი</option>
+                <option value="სტაბილური">სტაბილური</option>
+                <option value="კრიტიკული">კრიტიკული</option>
+                <option value="გაურკვეველი">გაურკვეველი</option>
+                <option value="შიგააქ">შიგააქ</option>
+              </select>
+            </div>
           </form>
         </div>
         <div class="modal-footer">
           <div class="modal-footer-actions">
+            <button type="button" class="btn btn-short btn-checklist-link" title="ჩექლისთი" onclick="openEditChecklist()">ჩექ</button>
+            <button type="button" class="btn btn-short btn-emergency-link" title="ემერჯენსის გასინჯვა" onclick="openEditEmergency()">ემერ</button>
+            <button type="button" class="btn btn-short btn-forma-link" title="ფორმა № IV-100/ა" onclick="openEditForma100()">100</button>
+            <button type="button" class="btn action-icon-btn btn-prescription" title="დანიშნულების ფურცელი" onclick="openEditPrescription()"><svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h7l4 4v14H5V6a3 3 0 0 1 3-3Z"/><path d="M15 3v5h5"/><path d="M8 12h8"/><path d="M8 16h8"/></svg></button>
             <button type="button" class="btn action-icon-btn btn-archive" title="არქივი" onclick="archiveEditingPatient()"><svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 7 4v10l-7 4-7-4V7l7-4Z"/><path d="m5 7 7 4 7-4"/><path d="M12 11v10"/></svg></button>
             <button type="button" class="btn action-icon-btn btn-delete" title="წაშლა" onclick="deleteEditingPatient()"><svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"/><path d="M9 7V4h6v3"/><path d="M8 7v11a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+            <div class="edit-room-control">
+              <label for="edit-room">დარბაზი</label>
+              <select id="edit-room" name="room" form="edit-form" class="edit-room-select">
+                <option value="observation">ობსერვაცია</option>
+                <option value="shock">შოკის დარბაზი</option>
+              </select>
+            </div>
           </div>
           <div class="modal-footer-controls">
             <button type="button" class="btn" style="background:#94a3b8;color:white;" onclick="closeEditModal()">გაუქმება</button>
