@@ -87,6 +87,11 @@
       --bed-border:#9de8bd;
       --bed-strip:#10b981;
     }
+    .monitor-bed.status-severe{
+      --bed-surface:#ffe7d6;
+      --bed-border:#fdba74;
+      --bed-strip:#ea580c;
+    }
     .monitor-bed.status-critical{
       --bed-surface:#fde4ea;
       --bed-border:#f7b7c8;
@@ -175,6 +180,7 @@
     }
     .monitor-patient-name.status-neutral{background:#eef2f6;color:#334155;border-color:#dce3ec;}
     .monitor-patient-name.status-stable{background:#dff5e8;color:#047857;border-color:#9de8bd;}
+    .monitor-patient-name.status-severe{background:#ffe7d6;color:#c2410c;border-color:#fdba74;}
     .monitor-patient-name.status-critical{background:#fde4ea;color:#d9044d;border-color:#f7b7c8;}
     .monitor-patient-name.status-observation{background:#fcf1c7;color:#c77700;border-color:#f1d46d;}
     .monitor-patient-name.status-internal{background:#ece5ff;color:#6d38ff;border-color:#d7c7ff;}
@@ -230,6 +236,7 @@
     const MONITOR_BEDS = ['1','2','3','4','5','6','7','8','9','10','ლოჯი','მცირე','მოვა'];
     const STATUS_CLASS_MAP = {
       'სტაბილური': 'status-stable',
+      'მძიმე': 'status-severe',
       'კრიტიკული': 'status-critical',
       'გაურკვეველი': 'status-observation',
       'შიგააქ': 'status-internal'

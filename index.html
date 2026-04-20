@@ -110,6 +110,7 @@
 
     const PATIENT_STATUS_META = {
       'სტაბილური': { className: 'status-stable' },
+      'მძიმე': { className: 'status-severe' },
       'კრიტიკული': { className: 'status-critical' },
       'გაურკვეველი': { className: 'status-observation' },
       'შიგააქ': { className: 'status-internal' }
@@ -863,6 +864,7 @@
     .patient-copy-btn .action-icon{width:15px;height:15px;}
     .status-neutral{background:#eef2f6;color:#334155;border-color:#dce3ec;}
     .status-stable{background:#dff5e8;color:#047857;border-color:#9de8bd;}
+    .status-severe{background:#ffe7d6;color:#c2410c;border-color:#fdba74;}
     .status-critical{background:#fde4ea;color:#d9044d;border-color:#f7b7c8;}
     .status-observation{background:#fcf1c7;color:#c77700;border-color:#f1d46d;}
     .status-internal{background:#ece5ff;color:#6d38ff;border-color:#d7c7ff;}
@@ -1101,6 +1103,7 @@
               <select id="quick-status" name="status">
                 <option value="">აირჩიეთ სტატუსი</option>
                 <option value="სტაბილური">სტაბილური</option>
+                <option value="მძიმე">მძიმე</option>
                 <option value="კრიტიკული">კრიტიკული</option>
                 <option value="გაურკვეველი">გაურკვეველი</option>
                 <option value="შიგააქ">შიგააქ</option>
@@ -1146,6 +1149,7 @@
                 <select id="reg-status" name="status">
                   <option value="">აირჩიეთ სტატუსი</option>
                   <option value="სტაბილური">სტაბილური</option>
+                  <option value="მძიმე">მძიმე</option>
                   <option value="კრიტიკული">კრიტიკული</option>
                   <option value="გაურკვეველი">გაურკვეველი</option>
                   <option value="შიგააქ">შიგააქ</option>
@@ -1240,6 +1244,7 @@
               <select id="edit-status" name="status">
                 <option value="">აირჩიეთ სტატუსი</option>
                 <option value="სტაბილური">სტაბილური</option>
+                <option value="მძიმე">მძიმე</option>
                 <option value="კრიტიკული">კრიტიკული</option>
                 <option value="გაურკვეველი">გაურკვეველი</option>
                 <option value="შიგააქ">შიგააქ</option>
