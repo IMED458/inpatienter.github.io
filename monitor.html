@@ -45,6 +45,18 @@
       gap:18px;
       align-content:start;
     }
+    .monitor-board-observation{
+      grid-template-columns:repeat(7,minmax(0,1fr));
+      grid-template-areas:
+        "bed9 bed9 . bed10 . bed6 bed6"
+        "bed8 bed8 . . . bed5 bed5"
+        "bed7 bed7 . . . bed4 bed4"
+        "divider divider divider divider divider divider divider"
+        ". . . . bed3 bed3 bed3"
+        ". . . . bed2 bed2 bed2"
+        ". . . . bed1 bed1 bed1";
+      align-items:stretch;
+    }
     .monitor-bed{
       --bed-surface:#f8fbff;
       --bed-border:#dce5ef;
@@ -198,8 +210,34 @@
       font-weight:700;
       color:#506078;
     }
+    .observation-divider{
+      grid-area:divider;
+      height:3px;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(226,232,240,0.4) 0%, #d7dfeb 14%, #d7dfeb 86%, rgba(226,232,240,0.4) 100%);
+      align-self:center;
+      margin:14px 0;
+    }
+    .monitor-extra-section{
+      margin-top:18px;
+      padding-top:18px;
+      border-top:1px solid #e4eaf2;
+    }
+    .monitor-extra-title{
+      margin-bottom:14px;
+      font-size:.96rem;
+      font-weight:800;
+      color:#64748b;
+      letter-spacing:.01em;
+    }
+    .monitor-extra-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:18px;
+    }
     @media(max-width:1280px){
       .monitor-board{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .monitor-extra-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
     }
     @media(max-width:980px){
       .monitor-shell{padding:18px;}
@@ -207,11 +245,19 @@
       .monitor-board{grid-template-columns:repeat(2,minmax(0,1fr));}
       .monitor-bed{min-height:164px;border-radius:26px;}
       .monitor-bed-body{padding:16px 16px 18px;}
+      .monitor-extra-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
     @media(max-width:640px){
       .monitor-shell{padding:14px;}
       .monitor-surface{padding:14px;}
       .monitor-board{grid-template-columns:1fr;}
+      .monitor-board-observation{
+        grid-template-columns:1fr;
+        grid-template-areas:none;
+      }
+      .monitor-board-observation .monitor-bed{grid-area:auto !important;}
+      .observation-divider{display:none;}
+      .monitor-extra-grid{grid-template-columns:1fr;}
     }
   </style>
   <script type="module">
@@ -234,6 +280,19 @@
       shock: { collectionId: 'shock_room', title: 'შოკის დარბაზი' }
     };
     const MONITOR_BEDS = ['1','2','3','4','5','6','7','8','9','10','ლოჯი','მცირე','მოვა'];
+    const OBSERVATION_LAYOUT_BEDS = ['9','8','7','10','6','5','4','3','2','1'];
+    const OBSERVATION_LAYOUT_AREAS = {
+      '9': 'bed9',
+      '8': 'bed8',
+      '7': 'bed7',
+      '10': 'bed10',
+      '6': 'bed6',
+      '5': 'bed5',
+      '4': 'bed4',
+      '3': 'bed3',
+      '2': 'bed2',
+      '1': 'bed1'
+    };
     const STATUS_CLASS_MAP = {
       'სტაბილური': 'status-stable',
       'მძიმე': 'status-severe',
@@ -281,14 +340,44 @@
       document.getElementById('monitor-root').innerHTML = `<section class="monitor-surface"><div class="monitor-state">${escapeHtml(message)}</div></section>`;
     }
 
-    function renderMonitor(activePatients) {
+    function buildPatientBuckets(activePatients) {
       const patientBuckets = new Map();
       activePatients.forEach(patient => {
         const bed = normalizeBedValue(patient.bed) || 'უცნობი';
         if (!patientBuckets.has(bed)) patientBuckets.set(bed, []);
         patientBuckets.get(bed).push(patient);
       });
+      return patientBuckets;
+    }
 
+    function renderMonitorBed(bed, bedPatients, options = {}) {
+      const bedStatusClass = bedPatients.length ? getStatusClass(bedPatients[0].status) : 'status-neutral is-empty';
+      const extraClassName = options.className ? ` ${options.className}` : '';
+      const extraStyle = options.gridArea ? ` style="grid-area:${options.gridArea}"` : '';
+      return `
+        <section class="monitor-bed ${bedStatusClass}${extraClassName}"${extraStyle}>
+          <div class="monitor-bed-body">
+            <div class="monitor-bed-head">
+              <div class="monitor-bed-number">${escapeHtml(bed)}</div>
+            </div>
+            <div class="monitor-patient-stack">
+              ${bedPatients.length
+                ? bedPatients
+                    .map(patient => `
+                      <div class="monitor-patient-entry">
+                        <div class="monitor-patient-name ${getStatusClass(patient.status)}">${escapeHtml(patient.patient_name || '—')}</div>
+                        ${getDiagnosisValue(patient) ? `<div class="monitor-patient-diagnosis">${escapeHtml(getDiagnosisValue(patient))}</div>` : ''}
+                      </div>
+                    `)
+                    .join('')
+                : '<div class="monitor-patient-name is-empty">—</div>'}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderDefaultMonitor(patientBuckets) {
       const extraBeds = [...patientBuckets.keys()]
         .filter(bed => !MONITOR_BEDS.includes(bed))
         .sort((a, b) => getBedOrder(a) - getBedOrder(b) || a.localeCompare(b, 'ka'));
@@ -297,34 +386,44 @@
       document.getElementById('monitor-root').innerHTML = `
         <section class="monitor-surface">
         <div class="monitor-board">
-          ${orderedBeds.map(bed => {
-            const bedPatients = patientBuckets.get(bed) || [];
-            const bedStatusClass = bedPatients.length ? getStatusClass(bedPatients[0].status) : 'status-neutral is-empty';
-            return `
-              <section class="monitor-bed ${bedStatusClass}">
-                <div class="monitor-bed-body">
-                <div class="monitor-bed-head">
-                  <div class="monitor-bed-number">${escapeHtml(bed)}</div>
-                </div>
-                <div class="monitor-patient-stack">
-                  ${bedPatients.length
-                    ? bedPatients
-                        .map(patient => `
-                          <div class="monitor-patient-entry">
-                            <div class="monitor-patient-name ${getStatusClass(patient.status)}">${escapeHtml(patient.patient_name || '—')}</div>
-                            ${getDiagnosisValue(patient) ? `<div class="monitor-patient-diagnosis">${escapeHtml(getDiagnosisValue(patient))}</div>` : ''}
-                          </div>
-                        `)
-                        .join('')
-                    : '<div class="monitor-patient-name is-empty">—</div>'}
-                </div>
-                </div>
-              </section>
-            `;
-          }).join('')}
+          ${orderedBeds.map(bed => renderMonitorBed(bed, patientBuckets.get(bed) || [])).join('')}
         </div>
         </section>
       `;
+    }
+
+    function renderObservationMonitor(patientBuckets) {
+      const extraBeds = [...patientBuckets.keys()]
+        .filter(bed => !OBSERVATION_LAYOUT_BEDS.includes(bed))
+        .sort((a, b) => getBedOrder(a) - getBedOrder(b) || a.localeCompare(b, 'ka'));
+
+      document.getElementById('monitor-root').innerHTML = `
+        <section class="monitor-surface">
+          <div class="monitor-board monitor-board-observation">
+            ${OBSERVATION_LAYOUT_BEDS
+              .map(bed => renderMonitorBed(bed, patientBuckets.get(bed) || [], { gridArea: OBSERVATION_LAYOUT_AREAS[bed] }))
+              .join('')}
+            <div class="observation-divider" aria-hidden="true"></div>
+          </div>
+          ${extraBeds.length ? `
+            <div class="monitor-extra-section">
+              <div class="monitor-extra-title">დამატებითი ადგილები</div>
+              <div class="monitor-extra-grid">
+                ${extraBeds.map(bed => renderMonitorBed(bed, patientBuckets.get(bed) || [])).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </section>
+      `;
+    }
+
+    function renderMonitor(activePatients) {
+      const patientBuckets = buildPatientBuckets(activePatients);
+      if (roomKey === 'observation') {
+        renderObservationMonitor(patientBuckets);
+        return;
+      }
+      renderDefaultMonitor(patientBuckets);
     }
 
     const roomKey = normalizeRoomKey(new URLSearchParams(window.location.search).get('room') || '');
