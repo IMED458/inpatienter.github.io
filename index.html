@@ -115,6 +115,19 @@
       'გაურკვეველი': { className: 'status-observation' },
       'შიგააქ': { className: 'status-internal' }
     };
+    const OBSERVATION_LAYOUT_BEDS = ['9','8','7','10','6','5','4','3','2','1'];
+    const OBSERVATION_LAYOUT_AREAS = {
+      '9': 'bed9',
+      '8': 'bed8',
+      '7': 'bed7',
+      '10': 'bed10',
+      '6': 'bed6',
+      '5': 'bed5',
+      '4': 'bed4',
+      '3': 'bed3',
+      '2': 'bed2',
+      '1': 'bed1'
+    };
 
     function getFormValue(form, name) {
       const field = form?.elements?.namedItem(name);
@@ -356,6 +369,97 @@
       `;
     }
 
+    function getObservationBedStatusClass(status) {
+      const map = {
+        'სტაბილური': 'obs-bed-stable',
+        'მძიმე': 'obs-bed-severe',
+        'კრიტიკული': 'obs-bed-critical',
+        'გაურკვეველი': 'obs-bed-observation',
+        'შიგააქ': 'obs-bed-internal'
+      };
+      return map[String(status || '').trim()] || 'obs-bed-neutral';
+    }
+
+    function buildPatientBuckets(list) {
+      const buckets = new Map();
+      list.forEach(patient => {
+        const bed = String(patient.bed || '').trim() || 'უცნობი';
+        if (!buckets.has(bed)) buckets.set(bed, []);
+        buckets.get(bed).push(patient);
+      });
+      return buckets;
+    }
+
+    function renderObservationMeta(p) {
+      const parts = [p.icd10_code, p.doctor].map(value => String(value || '').trim()).filter(Boolean);
+      return parts.length
+        ? `<div class="active-observation-meta">${parts.map(part => escapeHtml(part)).join(' <span class="active-observation-dot">·</span> ')}</div>`
+        : '';
+    }
+
+    function renderActiveObservationEntry(p) {
+      const statusMeta = getPatientStatusMeta(p.status);
+      return `
+        <div class="active-observation-entry">
+          <div class="active-observation-topline">
+            ${renderChecklistToggle(p.id)}
+            <div class="patient-name-wrap">
+              <span class="patient-name-pill ${statusMeta.className}">${escapeHtml(p.patient_name || '—')}</span>
+              <button class="patient-copy-btn" type="button" title="სახელის დაკოპირება" onclick="copyPatientName('${p.id}')">${getActionIconSvg('copy')}</button>
+            </div>
+          </div>
+          ${renderObservationMeta(p)}
+          <div class="active-observation-actions">
+            ${renderActionIconButton('edit', 'რედაქტირება', `openEditModal('${p.id}')`)}
+            ${renderActionIconButton('archive', 'არქივი', `archivePatient('${p.id}')`)}
+            ${renderActionIconButton('delete', 'წაშლა', `permanentlyDelete('${p.id}')`)}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderObservationBed(bed, bedPatients, options = {}) {
+      const bedStatusClass = bedPatients.length ? getObservationBedStatusClass(bedPatients[0].status) : 'obs-bed-neutral is-empty';
+      const gridArea = options.gridArea ? ` style="grid-area:${options.gridArea}"` : '';
+      return `
+        <section class="active-observation-bed ${bedStatusClass}"${gridArea}>
+          <div class="active-observation-bed-body">
+            <div class="active-observation-bed-head">
+              <div class="active-observation-bed-number">${escapeHtml(bed)}</div>
+            </div>
+            <div class="active-observation-patient-stack">
+              ${bedPatients.length
+                ? bedPatients.map(renderActiveObservationEntry).join('')
+                : '<div class="active-observation-empty">თავისუფალია</div>'}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderActiveObservationLayout(list) {
+      const host = document.getElementById('active-observation-layout');
+      const patientBuckets = buildPatientBuckets(list);
+      const extraBeds = [...patientBuckets.keys()]
+        .filter(bed => !OBSERVATION_LAYOUT_BEDS.includes(bed))
+        .sort((a, b) => getBedOrder(a) - getBedOrder(b) || a.localeCompare(b, 'ka'));
+
+      host.innerHTML = `
+        <div class="active-observation-board">
+          ${OBSERVATION_LAYOUT_BEDS.map(bed => renderObservationBed(bed, patientBuckets.get(bed) || [], { gridArea: OBSERVATION_LAYOUT_AREAS[bed] })).join('')}
+          <div class="active-observation-divider" aria-hidden="true"></div>
+        </div>
+        ${extraBeds.length ? `
+          <div class="active-observation-extra">
+            <div class="active-observation-extra-title">დამატებითი ადგილები</div>
+            <div class="active-observation-extra-grid">
+              ${extraBeds.map(bed => renderObservationBed(bed, patientBuckets.get(bed) || [])).join('')}
+            </div>
+          </div>
+        ` : ''}
+      `;
+    }
+
     function renderActive() {
       let list = patients.filter(p => !p.archived);
       const search = document.getElementById('search')?.value.toLowerCase() || '';
@@ -371,6 +475,17 @@
       );
       list.sort((a,b) => getBedOrder(a.bed) - getBedOrder(b.bed));
 
+      const activeTableWrap = document.getElementById('active-table-wrap');
+      const activeObservationLayout = document.getElementById('active-observation-layout');
+      if (currentCollection?.id === 'observation_room') {
+        activeTableWrap.style.display = 'none';
+        activeObservationLayout.style.display = 'block';
+        renderActiveObservationLayout(list);
+        return;
+      }
+
+      activeTableWrap.style.display = 'block';
+      activeObservationLayout.style.display = 'none';
       const tbody = document.getElementById('active-tbody');
       tbody.innerHTML = list.length === 0
         ? '<tr><td colspan="5" class="empty-state">პაციენტები არ არის</td></tr>'
@@ -871,6 +986,45 @@
     .search-filter{margin-bottom:16px;}
     .search-filter input{width:100%;max-width:640px;border:1px solid #d6dfeb;border-radius:18px;padding:16px 18px;font-size:1rem;font-family:inherit;background:#f9fbfd;outline:none;color:#172033;}
     .search-filter input:focus{border-color:#b9c8dd;box-shadow:0 0 0 4px rgba(91,69,255,0.08);}
+    .active-observation-layout{display:none;}
+    .active-observation-board{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-areas:
+      "bed9 bed9 . bed10 . bed6 bed6"
+      "bed8 bed8 . . . bed5 bed5"
+      "bed7 bed7 . . . bed4 bed4"
+      "divider divider divider divider divider divider divider"
+      ". . . . bed3 bed3 bed3"
+      ". . . . bed2 bed2 bed2"
+      ". . . . bed1 bed1 bed1";gap:14px;align-items:stretch;}
+    .active-observation-bed{--obs-surface:#f8fbff;--obs-border:#dce5ef;--obs-strip:#d8e0ec;min-height:116px;position:relative;overflow:hidden;border-radius:22px;background:linear-gradient(180deg,var(--obs-surface) 0%, #ffffff 100%);border:1px solid var(--obs-border);box-shadow:0 10px 20px rgba(20,32,51,0.05);}
+    .active-observation-bed::before{content:"";display:block;width:100%;height:5px;background:var(--obs-strip);}
+    .active-observation-bed-body{display:flex;flex-direction:column;gap:10px;padding:12px 12px 14px;height:100%;}
+    .active-observation-bed.is-empty{box-shadow:none;}
+    .active-observation-bed.obs-bed-neutral{--obs-surface:#eef2f6;--obs-border:#dce3ec;--obs-strip:#cbd5e1;}
+    .active-observation-bed.obs-bed-stable{--obs-surface:#dff5e8;--obs-border:#9de8bd;--obs-strip:#10b981;}
+    .active-observation-bed.obs-bed-severe{--obs-surface:#ffe7d6;--obs-border:#fdba74;--obs-strip:#ea580c;}
+    .active-observation-bed.obs-bed-critical{--obs-surface:#fde4ea;--obs-border:#f7b7c8;--obs-strip:#e11d48;}
+    .active-observation-bed.obs-bed-observation{--obs-surface:#fcf1c7;--obs-border:#f1d46d;--obs-strip:#f59e0b;}
+    .active-observation-bed.obs-bed-internal{--obs-surface:#ece5ff;--obs-border:#d7c7ff;--obs-strip:#7c3aed;}
+    .active-observation-bed-head{display:flex;align-items:flex-start;justify-content:flex-start;}
+    .active-observation-bed-number{display:inline-flex;align-items:center;justify-content:center;min-width:48px;min-height:38px;padding:7px 14px;border-radius:999px;border:1px solid #d8d2ff;background:#eaeaff;color:#4b36f0;font-size:1.02rem;font-weight:800;line-height:1;}
+    .active-observation-bed.is-empty .active-observation-bed-number{background:#eef2f8;border-color:#dbe2ec;color:#64748b;}
+    .active-observation-patient-stack{display:flex;flex-direction:column;gap:8px;min-height:44px;}
+    .active-observation-entry{display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid rgba(208,217,229,0.72);}
+    .active-observation-entry:first-child{padding-top:0;border-top:none;}
+    .active-observation-topline{display:flex;align-items:center;gap:8px;min-width:0;}
+    .active-observation-topline .patient-name-wrap{min-width:0;max-width:100%;}
+    .active-observation-topline .patient-name-pill{min-height:36px;padding:7px 14px;font-size:.9rem;white-space:normal;line-height:1.12;}
+    .active-observation-topline .patient-copy-btn{width:32px;height:32px;border-radius:10px;}
+    .active-observation-topline .bed-mark{width:28px;height:28px;font-size:.88rem;flex:0 0 auto;}
+    .active-observation-meta{font-size:.78rem;font-weight:700;color:#64748b;line-height:1.3;padding-left:2px;word-break:break-word;}
+    .active-observation-dot{color:#94a3b8;padding:0 3px;}
+    .active-observation-actions{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;}
+    .active-observation-actions .action-icon-btn{width:32px;height:32px;border-radius:10px;}
+    .active-observation-empty{display:flex;align-items:center;min-height:44px;font-size:.86rem;font-weight:700;color:#94a3b8;}
+    .active-observation-divider{grid-area:divider;height:3px;border-radius:999px;background:linear-gradient(90deg, rgba(226,232,240,0.35) 0%, #d7dfeb 14%, #d7dfeb 86%, rgba(226,232,240,0.35) 100%);align-self:center;margin:10px 0;}
+    .active-observation-extra{margin-top:16px;padding-top:16px;border-top:1px solid #e4eaf2;}
+    .active-observation-extra-title{margin-bottom:12px;font-size:.92rem;font-weight:800;color:#64748b;}
+    .active-observation-extra-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
 
     .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;}
     .stat-card{background:linear-gradient(180deg,#f8fbff,#eef3f9);border:1px solid #dce5f0;border-radius:22px;padding:22px;text-align:center;}
@@ -903,6 +1057,10 @@
       .header-side{justify-content:center;align-items:center;}
       .header-tools{justify-content:center;}
       .header-room{align-items:center;text-align:center;}
+      .active-observation-board{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:none;}
+      .active-observation-board .active-observation-bed{grid-area:auto !important;}
+      .active-observation-divider{display:none;}
+      .active-observation-extra-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
 
     @media(max-width:900px){
@@ -922,6 +1080,7 @@
       .action-buttons{justify-content:flex-start;}
       .back-to-rooms{top:16px;left:16px;padding:10px 14px;}
       .modal-footer-actions,.modal-footer-controls{width:100%;justify-content:flex-start;}
+      .active-observation-board,.active-observation-extra-grid{grid-template-columns:1fr;}
     }
   </style>
 </head>
@@ -1024,15 +1183,18 @@
           <div class="search-filter">
             <input type="text" id="search" placeholder="ძებნა სახელით, ICD-10 კოდით, სტატუსით, ექიმით...">
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>საწოლი და გვარი</th><th>ICD-10 კოდი</th>
-                <th>ექიმი</th><th>კომენტარი</th><th>მოქმედება</th>
-              </tr>
-            </thead>
-            <tbody id="active-tbody"></tbody>
-          </table>
+          <div id="active-observation-layout" class="active-observation-layout"></div>
+          <div id="active-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>საწოლი და გვარი</th><th>ICD-10 კოდი</th>
+                  <th>ექიმი</th><th>კომენტარი</th><th>მოქმედება</th>
+                </tr>
+              </thead>
+              <tbody id="active-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
